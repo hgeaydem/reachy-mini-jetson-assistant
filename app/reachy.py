@@ -17,6 +17,12 @@
 
 Shared across run_vision_chat.py, run_web_vision_chat.py, and any
 future entry point that needs robot control.
+
+Two modes (config.reachy.mode):
+  * "lite"     — daemon on this machine (USB), spawnable locally.
+  * "wireless" — daemon on the robot's own Raspberry Pi, reached over the
+                 network; camera + audio stream through the SDK's WebRTC
+                 media channel (``reachy.media``).
 """
 
 import os
@@ -35,6 +41,11 @@ except ImportError:
     HAS_REACHY = False
     ReachyMini = None  # type: ignore[assignment,misc]
     psutil = None
+
+
+def is_wireless(config) -> bool:
+    """True when the config targets a Reachy Mini Wireless over the network."""
+    return getattr(config.reachy, "mode", "lite") == "wireless"
 
 
 def is_daemon_running() -> bool:
@@ -130,13 +141,32 @@ def connect(config, console: Console) -> Optional["ReachyMini"]:
                 kill_daemon(console)
                 console.print("  Retrying connection (fresh daemon)...")
 
-            reachy = ReachyMini(
-                spawn_daemon=rcfg.spawn_daemon,
-                use_sim=False,
-                timeout=rcfg.timeout,
-                media_backend=rcfg.media_backend,
-                automatic_body_yaw=rcfg.automatic_body_yaw,
-            )
+            if is_wireless(config):
+                # Daemon lives on the robot's RPi: never spawn it locally,
+                # discover it over the network and stream media via WebRTC.
+                # The SDK finds the daemon by Zenoh multicast/gossip scouting
+                # (connection_mode="network"); `robot_name` is the Zenoh topic
+                # prefix and must match the daemon's `--robot-name`. No host or
+                # port is needed: the WebRTC signalling endpoint (ws://<wlan_ip>:8443)
+                # is resolved by the SDK from the daemon's own status payload.
+                console.print(f"  Wireless: discovering daemon '{rcfg.robot_name}' on the network...")
+                reachy = ReachyMini(
+                    robot_name=rcfg.robot_name,
+                    connection_mode=rcfg.connection_mode,
+                    spawn_daemon=False,
+                    use_sim=False,
+                    timeout=rcfg.timeout,
+                    media_backend=rcfg.media_backend,
+                    automatic_body_yaw=rcfg.automatic_body_yaw,
+                )
+            else:
+                reachy = ReachyMini(
+                    spawn_daemon=rcfg.spawn_daemon,
+                    use_sim=False,
+                    timeout=rcfg.timeout,
+                    media_backend=rcfg.media_backend,
+                    automatic_body_yaw=rcfg.automatic_body_yaw,
+                )
 
             disabled = disable_sdk_background_motion(reachy)
             if disabled:
@@ -147,6 +177,8 @@ def connect(config, console: Console) -> Optional["ReachyMini"]:
             if rcfg.wake_on_start:
                 if daemon_already_running:
                     console.print("  Ensuring Reachy Mini is awake...")
+                elif is_wireless(config):
+                    console.print("  Waking up Reachy Mini (remote)...")
                 else:
                     console.print("  Waking up Reachy Mini...")
                 reachy.wake_up()

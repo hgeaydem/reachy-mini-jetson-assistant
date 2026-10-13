@@ -379,8 +379,19 @@ class PulseAudioAEC:
             pass
 
 
-def play_audio(audio: np.ndarray, sample_rate: int, sink: Optional[str] = None):
-    """Play int16 audio and do not return before its real-time duration."""
+def play_audio(audio: np.ndarray, sample_rate: int, sink=None):
+    """Play int16 audio and do not return before its real-time duration.
+
+    ``sink`` is either a PulseAudio sink id (local USB audio) or a remote
+    speaker object (Reachy Mini Wireless, see ``app.remote_media.RemoteSpeaker``)
+    which is called back with the audio and sample rate.
+    """
+    if sink is not None and not isinstance(sink, str):
+        try:
+            sink.play(audio, sample_rate)
+        except Exception:
+            pass
+        return
     raw = audio.astype(np.int16).tobytes()
     expected_duration = audio.size / sample_rate if sample_rate > 0 else 0.0
     started_at = time.monotonic()

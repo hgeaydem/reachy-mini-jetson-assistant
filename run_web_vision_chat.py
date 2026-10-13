@@ -47,7 +47,8 @@ from app.pipeline import (
     SAMPLE_RATE, TTS_BREAKS, MicRecorder, warmup_stt, vad_loop,
     tts_player, load_silero,
 )
-from app.reachy import kill_stale_camera_holders, connect as connect_reachy
+from app.reachy import kill_stale_camera_holders, connect as connect_reachy, is_wireless
+from app.remote_media import RemoteCamera, RemoteMicRecorder, RemoteSpeaker
 from app.face_detector import FaceDetector
 from app.face_tracker import FaceTracker
 from app.movement_manager import MovementManager
@@ -160,33 +161,56 @@ def main():
     reachy = connect_reachy(config, console)
 
     # ── Audio setup ──────────────────────────────────────────────
-    result = find_alsa_device(name_hint=config.audio.input_device or "Reachy Mini Audio")
-    if not result:
-        console.print("[red]No mic found![/red]")
-        return
-    card, dev, mic_name = result
-    hw = f"hw:{card},{dev}"
-    console.print(f"  Mic: {hw} ({mic_name})")
+    if is_wireless(config):
+        hw = "wireless"
+    else:
+        result = find_alsa_device(name_hint=config.audio.input_device or "Reachy Mini Audio")
+        if not result:
+            console.print("[red]No mic found![/red]")
+            return
+        card, dev, mic_name = result
+        hw = f"hw:{card},{dev}"
+        console.print(f"  Mic: {hw} ({mic_name})")
 
     # ── Camera setup ─────────────────────────────────────────────
-    kill_stale_camera_holders(config.vision.camera_device, console)
-
-    cam = Camera(
-        device=config.vision.camera_device,
-        width=config.vision.width,
-        height=config.vision.height,
-        jpeg_quality=config.vision.jpeg_quality,
-        capture_fps=config.vision.capture_fps,
-    )
-    if cam.start():
-        console.print(
-            f"  ✓ Camera /dev/video{config.vision.camera_device} "
-            f"({config.vision.width}x{config.vision.height}, "
-            f"{config.vision.capture_fps} fps compressed ring buffer)"
+    if is_wireless(config):
+        if reachy is None:
+            console.print("[red]  ✗ Wireless robot not reachable — no camera.[/red]")
+            return
+        cam = RemoteCamera(
+            media=reachy.media,
+            width=config.vision.width,
+            height=config.vision.height,
+            jpeg_quality=config.vision.jpeg_quality,
+            capture_fps=config.vision.capture_fps,
         )
+        if cam.start():
+            console.print(
+                f"  ✓ Remote camera via WebRTC "
+                f"({cam.width}x{cam.height}, {config.vision.capture_fps} fps ring buffer)"
+            )
+        else:
+            console.print("[red]  ✗ Remote camera not streaming![/red]")
+            return
     else:
-        console.print("[red]  ✗ Camera not found! Check USB webcam.[/red]")
-        return
+        kill_stale_camera_holders(config.vision.camera_device, console)
+
+        cam = Camera(
+            device=config.vision.camera_device,
+            width=config.vision.width,
+            height=config.vision.height,
+            jpeg_quality=config.vision.jpeg_quality,
+            capture_fps=config.vision.capture_fps,
+        )
+        if cam.start():
+            console.print(
+                f"  ✓ Camera /dev/video{config.vision.camera_device} "
+                f"({config.vision.width}x{config.vision.height}, "
+                f"{config.vision.capture_fps} fps compressed ring buffer)"
+            )
+        else:
+            console.print("[red]  ✗ Camera not found! Check USB webcam.[/red]")
+            return
 
     # ── Pre-declare variables for cleanup closure ───────────────
     mic = None
@@ -207,6 +231,11 @@ def main():
             except Exception:
                 pass
         cam.close()
+        if is_wireless(config) and reachy is not None:
+            try:
+                reachy.media.close()
+            except Exception:
+                pass
         if reachy and config.reachy.sleep_on_exit:
             try:
                 signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -333,7 +362,12 @@ def main():
 
     # ── Start mic ────────────────────────────────────────────────
     effective_chunk_ms = 32
-    mic = MicRecorder(console, chunk_ms=effective_chunk_ms)
+    if is_wireless(config):
+        speaker = RemoteSpeaker(reachy.media)
+        mic = RemoteMicRecorder(console, chunk_ms=effective_chunk_ms)
+        mic.attach(reachy.media, speaker)
+    else:
+        mic = MicRecorder(console, chunk_ms=effective_chunk_ms)
     if not mic.start(
         hw,
         config.audio.input_device or "Reachy Mini Audio",

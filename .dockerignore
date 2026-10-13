@@ -1,0 +1,35 @@
+# Git + caches
+.git
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Model / data / log artifacts (git-ignored; models auto-download at runtime)
+models/
+voices/
+chroma_db/
+.chroma/
+data/
+logs/
+*.log
+
+# Audio test artifacts
+*.wav
+*.mp3
+*.ogg
+
+# Secrets
+.env
+.env.local
+.envrc
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+tmp/
+temp/
+*.tmp

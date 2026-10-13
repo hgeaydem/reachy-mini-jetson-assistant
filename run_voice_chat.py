@@ -37,6 +37,8 @@ from app.tts import create_tts
 from app.pipeline import (
     SAMPLE_RATE, MicRecorder, warmup_stt, vad_loop, stream_and_speak, load_silero,
 )
+from app.reachy import is_wireless, connect as connect_reachy
+from app.remote_media import RemoteMicRecorder, RemoteSpeaker
 from rich.console import Console
 from rich.panel import Panel
 
@@ -56,13 +58,22 @@ def main():
     ))
 
     # ── Audio setup ──────────────────────────────────────────────
-    result = find_alsa_device(name_hint=config.audio.input_device or "Reachy Mini Audio")
-    if not result:
-        console.print("[red]No mic found![/red]")
-        return
-    card, dev, mic_name = result
-    hw = f"hw:{card},{dev}"
-    console.print(f"  Mic: {hw} ({mic_name})")
+    reachy = None
+    if is_wireless(config):
+        reachy = connect_reachy(config, console)
+        if reachy is None:
+            console.print("[red]Cannot reach the Wireless robot's daemon![/red]")
+            return
+        console.print("  [dim]Wireless: mic + speaker on the robot (WebRTC)[/dim]")
+        hw = "wireless"
+    else:
+        result = find_alsa_device(name_hint=config.audio.input_device or "Reachy Mini Audio")
+        if not result:
+            console.print("[red]No mic found![/red]")
+            return
+        card, dev, mic_name = result
+        hw = f"hw:{card},{dev}"
+        console.print(f"  Mic: {hw} ({mic_name})")
 
     # ── Load models ──────────────────────────────────────────────
     console.print("\n[bold]Loading...[/bold]")
@@ -118,7 +129,12 @@ def main():
 
     # ── Start mic ────────────────────────────────────────────────
     effective_chunk_ms = 32
-    mic = MicRecorder(console, chunk_ms=effective_chunk_ms)
+    if is_wireless(config):
+        speaker = RemoteSpeaker(reachy.media)
+        mic = RemoteMicRecorder(console, chunk_ms=effective_chunk_ms)
+        mic.attach(reachy.media, speaker)
+    else:
+        mic = MicRecorder(console, chunk_ms=effective_chunk_ms)
     if not mic.start(hw, config.audio.input_device or "Reachy Mini Audio"):
         console.print("[red]Cannot start recording! Check mic.[/red]")
         return
@@ -195,6 +211,11 @@ def main():
         llm.unload()
         if tts:
             tts.unload()
+        if reachy is not None:
+            try:
+                reachy.media.close()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

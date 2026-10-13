@@ -10,6 +10,7 @@ dist/
 venv/
 env/
 .venv/
+.venv-*/
 ENV/
 
 # Models (large binary files — auto-downloaded at runtime)
@@ -48,6 +49,9 @@ Thumbs.db
 
 # Docker volumes
 docker-data/
+
+# GPU wheelhouse binaries (staged locally; see wheels/README.md)
+wheels/*.whl
 
 # Temporary files
 tmp/

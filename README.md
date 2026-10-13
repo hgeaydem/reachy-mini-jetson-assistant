@@ -112,6 +112,19 @@ The base `config/settings.yaml` and `run_llama_cpp.sh` defaults target JetPack 7
 
 Native CTranslate2 STT and ONNX Runtime Kokoro TTS are the supported default. The setup script verifies GPU execution and stops rather than silently falling back to portable ARM CPU packages. Speaches remains useful as an optional, separately managed compatibility or comparison service, but this application does not install it or automatically route STT/TTS through it.
 
+### Container images
+
+Instead of the bare-metal install above, you can run the assistant from a container
+image built on an aarch64 Jetson host (Thor). Two Containerfiles ship in
+`container/`: **r39.2** (JetPack 7.2, default, fully validated) and **r36.5**
+(JetPack 6, legacy). Each builds the wireless-media **rswebrtc** plugin
+(`webrtcsrc` / `webrtcsink`) against the base's system GStreamer — no source-built
+GStreamer — and, for r39.2, installs the exact published GPU wheels from
+`packaging/jetson-wheels.json` (SHA-256/size-verified). See
+**[`container/README.md`](container/README.md)** for the full recipe, the Thor
+validation evidence, and the (documented) r36.5 GPU-wheel gap. Build with
+`container/build_thor.sh`; the image entry point is `python run_vision_chat.py`.
+
 ## Usage
 
 ### Quick Start (Vision Chat with Web UI)

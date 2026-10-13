@@ -1,0 +1,161 @@
+# syntax=docker/dockerfile:1.7
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
+# Reachy Mini Jetson Assistant — JetPack 6.x / L4T r36.5 (Orin Nano, Ubuntu 22.04
+# jammy, Python 3.10, aarch64). Legacy path (see SETUP.md); the default, fully
+# validated path is JetPack 7.2 / r39.2 (container/Containerfile.r39.2).
+#
+# Base (validated on Thor, 2026-10-13):
+#   NVIDIA has NOT published an L4T container image for r36.5. The newest
+#   available nvidia/l4t-jetpack is r36.4.0, and it already ships the
+#   JetPack-optimized GStreamer 1.20.3 (nv* plugins) — so we start from it and
+#   do NOT re-install the optimized gstreamer. The r36.5 apt repo is added on
+#   top for r36.5-matched userspace libs.
+#
+# Wireless media (rswebrtc) — Thor-validated 2026-10-13, `RSWERTC_OK gst=1.20.3`:
+#   The assistant's app/remote_media.py and the SDK's webrtc_client_gstreamer.py
+#   need the rswebrtc elements `webrtcsrc` + `webrtcsink`. No apt package ships
+#   them for aarch64, so we build ONLY the Rust plugin (gst-plugins-rs net/webrtc,
+#   cdylib `gstrswebrtc`) against the system GStreamer. One recipe for BOTH
+#   bases: gst-plugins-rs @ gstreamer-1.24.0 with --no-default-features -> FFI
+#   floor GStreamer 1.20 (this jammy base is 1.20.3); its 2024 `time 0.3.34`
+#   lockfile pin is bumped to 0.3.47 before building (rustc >= 1.80).
+#   Default BUILD_WEBRTC=1.
+#
+# GPU runtimes — NOT solvable from public indexes (this is the honest gap):
+#   packaging/jetson-wheels.json publishes a wheel set for JP7.2 ONLY
+#   (jp72-l4t39.2-cu13.2-py3.12-sm87); there is no JP6 platform entry, and the
+#   jp6/cu126 devpi index currently serves 0 packages. CUDA-enabled
+#   CTranslate2/ONNX Runtime cp310 aarch64 wheels therefore must be staged in
+#   the build context at `./wheels/` before building (the same wheelhouse
+#   scripts/setup_jetson.sh --wheel-dir consumes on a bare Orin Nano; see
+#   docs/JETPACK_7_2_SETUP.md § "Publish a wheel set" for how one is built).
+#   `COPY wheels/ /opt/gpu-wheels/` makes this a hard, explicit build input —
+#   the image is never silently built CPU-only.
+
+ARG BASE_IMAGE=nvcr.io/nvidia/l4t-jetpack:r36.4.0
+FROM ${BASE_IMAGE}
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PYTHON_VERSION=3.10
+ARG BUILD_WEBRTC=1
+
+# ------------------------------------------------------------------------------
+# 0. r36.5 apt repo (NVIDIA GPG key; trusted=yes for container build).
+# ------------------------------------------------------------------------------
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl; \
+    curl -fsSL https://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
+        -o /etc/apt/trusted.gpg.d/nvidia-jetson.asc || \
+    echo 'deb [trusted=yes] https://repo.download.nvidia.com/jetson/common r36.5 main' \
+        > /etc/apt/sources.list.d/nvidia-r365.list; \
+    apt-get update
+
+# ------------------------------------------------------------------------------
+# 1. Confirm JetPack-optimized GStreamer is already present; fill gaps only.
+# ------------------------------------------------------------------------------
+RUN set -eux; \
+    echo '--- gstreamer pkgs in base ---'; \
+    dpkg -l 2>/dev/null | awk '/^ii/ {print $2, $3}' | grep -iE 'gstreamer|nvidia-l4t'; \
+    nvcount=$(ls /usr/lib/aarch64-linux-gnu/gstreamer-1.0/ 2>/dev/null | grep -cE '^libgstnv'); \
+    echo "nv* gstreamer plugins: ${nvcount}"; \
+    if [ "${nvcount}" -lt 5 ]; then \
+        echo 'optimized gstreamer missing — installing from r36.5 repo'; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends \
+            nvidia-l4t-gstreamer nvidia-l4t-multimedia 2>/dev/null || \
+        apt-get install -y --no-install-recommends nvidia-l4t-multimedia-utils || true; \
+    fi; \
+    ldconfig
+
+# ------------------------------------------------------------------------------
+# 2. Python + GStreamer runtime + PortAudio (sounddevice) + dev headers for the
+#    PyGObject source build. (The Rust toolchain + gst dev headers for the
+#    rswebrtc plugin are installed by container/gst_rswebrtc_sys.sh itself.)
+# ------------------------------------------------------------------------------
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        python${PYTHON_VERSION} python${PYTHON_VERSION}-venv python${PYTHON_VERSION}-dev \
+        python3-pip python3-wheel \
+        gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+        gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav \
+        gstreamer1.0-alsa \
+        libgstreamer1.0-0 libglib2.0-0 \
+        libportaudio2 libportaudio-dev \
+        libglib2.0-dev libgirepository1.0-dev gobject-introspection pkg-config \
+        build-essential ca-certificates curl \
+    ; \
+    ldconfig
+
+# ------------------------------------------------------------------------------
+# 3. venv + prebuilt GPU wheelhouse. Hard build input: stage the CP310 aarch64
+#    CUDA wheels in `./wheels/` in the build context before building.
+# ------------------------------------------------------------------------------
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN set -eux; python${PYTHON_VERSION} -m venv /opt/venv; \
+    . /opt/venv/bin/activate; \
+    pip install --no-cache-dir --upgrade pip wheel
+COPY . /build
+COPY wheels/ /opt/gpu-wheels/
+RUN set -eux; \
+    ls -la /opt/gpu-wheels/; \
+    test -n "$(ls /opt/gpu-wheels/ctranslate2-*-cp310-*.whl 2>/dev/null)" \
+        || { echo 'FATAL: no cp310 ctranslate2 wheel in ./wheels'; exit 1; }; \
+    test -n "$(ls /opt/gpu-wheels/onnxruntime_gpu-*-cp310-*.whl 2>/dev/null)" \
+        || { echo 'FATAL: no cp310 onnxruntime_gpu wheel in ./wheels'; exit 1; }
+
+# ------------------------------------------------------------------------------
+# 4. App + SDK + GPU runtimes.
+#    * PyGObject 3.46.0 from sdist (no aarch64 wheel) to satisfy reachy-mini's
+#      Linux pin (>=3.42.2, <=3.46.0).
+#    * reachy-mini==1.3.1[gstreamer] (requires_python >=3.10).
+#    * GPU: the CP310 CUDA wheels from /opt/gpu-wheels (wheelhouse, step 3).
+# ------------------------------------------------------------------------------
+RUN set -eux; \
+    . /opt/venv/bin/activate; \
+    pip install --no-cache-dir 'PyGObject==3.46.0'; \
+    echo '>> installing CUDA GPU wheels from wheelhouse'; \
+    pip install --no-cache-dir /opt/gpu-wheels/ctranslate2-*.whl \
+                         /opt/gpu-wheels/onnxruntime_gpu-*.whl; \
+    pip install --no-cache-dir 'reachy-mini==1.3.1[gstreamer]'; \
+    pip install --no-cache-dir -r /build/requirements.txt; \
+    echo '--- runtime checks ---'; \
+    python -c "import reachy_mini; print('reachy-mini', reachy_mini.__version__)"; \
+    python -c "import ctranslate2 as c; print('ctranslate2', c.__version__, 'cuda', c.get_cuda_device_count())"; \
+    python -c "import onnxruntime as o; print('onnxruntime', o.__version__, o.get_available_providers())"; \
+    python -c "import gi; gi.require_version('Gst','1.0'); from gi.repository import Gst; Gst.init(None); print('Gst', Gst.version_string())"
+
+# ------------------------------------------------------------------------------
+# 5. Build + smoke-test the rswebrtc plugin (gated by BUILD_WEBRTC).
+# ------------------------------------------------------------------------------
+COPY container/gst_rswebrtc_sys.sh /tmp/gst_rswebrtc_sys.sh
+RUN if [ "${BUILD_WEBRTC}" = "1" ]; then \
+        set -eux; \
+        bash /tmp/gst_rswebrtc_sys.sh; \
+        . /opt/venv/bin/activate; \
+        python -c "import gi; gi.require_version('Gst','1.0'); \
+from gi.repository import Gst; Gst.init(None); \
+assert Gst.ElementFactory.make('webrtcsrc') is not None, 'webrtcsrc missing'; \
+assert Gst.ElementFactory.make('webrtcsink') is not None, 'webrtcsink missing'; \
+print('RSWERTC_OK (PyGObject)')"; \
+    else \
+        echo 'BUILD_WEBRTC=0 — rswebrtc plugin not installed'; \
+    fi
+
+# ------------------------------------------------------------------------------
+# 6. App in place. NOT pip-installable (no pyproject.toml); runs from
+#    /opt/assistant. Models auto-download at first run.
+# ------------------------------------------------------------------------------
+WORKDIR /opt/assistant
+COPY . /opt/assistant
+RUN set -eux; \
+    if [ -d /opt/venv ]; then ln -sf /opt/venv/bin/python3 /usr/local/bin/python3; fi
+
+ENV ASSISTANT_HOME=/opt/assistant
+# Wireless profile (robot daemon + media over WebRTC). For the USB "Lite"
+# profile override: REACHY_ASSISTANT_CONFIG=/opt/assistant/config/settings.yaml
+ENV REACHY_ASSISTANT_CONFIG=/opt/assistant/config/settings.wireless.yaml
+CMD ["python", "run_vision_chat.py"]

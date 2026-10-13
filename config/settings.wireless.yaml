@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Profile: Reachy Mini **Wireless** (no USB connection to the Jetson).
+# The robot's onboard daemon (RPi) is reached over the network; camera and
+# audio stream over WebRTC via the SDK's media layer.
+#
+# The SDK discovers the daemon by Zenoh multicast/gossip scouting — no
+# address to configure. `robot_name` is only the Zenoh topic prefix and
+# must match the daemon's `--robot-name` (SDK default: "reachy_mini").
+#
+# Launch:  REACHY_ASSISTANT_CONFIG=config/settings.wireless.yaml python3 run_vision_chat.py
+#   (Config.load() reads the REACHY_ASSISTANT_CONFIG env var for the profile.)
+
+reachy:
+  enabled: true
+  mode: wireless                  # "lite" (default) = USB/local; "wireless" = network
+  robot_name: reachy_mini         # Zenoh topic prefix; must match the daemon's --robot-name
+  connection_mode: network        # discover the running daemon, never spawn locally
+  spawn_daemon: false             # the daemon runs on the robot's RPi, not the Jetson
+  media_backend: webrtc           # camera + audio over WebRTC instead of V4L2/ALSA
+  timeout: 30.0
+  automatic_body_yaw: false       # app owns body yaw; prevents SDK IK from exceeding app limits
+  wake_on_start: true
+  sleep_on_exit: true
+  antenna_rest_position: [-0.1745, 0.1745]
+  daemon_retry_attempts: 3
+  # Face tracking works exactly as on Lite — the only difference is the camera
+  # source (WebRTC ring buffer instead of /dev/video0).
+  face_tracking: true
+  tracking_motion_enabled: true
+  # Leave the rest of the tracking tuning at base settings.yaml values.
+
+# Audio devices are on the robot, not the Jetson — the Jetson never opens an
+# ALSA card in wireless mode (find_alsa_device is skipped).
+audio:
+  echo_cancellation: true
+
+# STT/LLM/TTS still run on the Jetson (faster-whisper CUDA, Kokoro); only the
+# audio I/O moves to the robot over WebRTC.
+stt:
+  device: "cuda"
+  compute_type: "float16"
