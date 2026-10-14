@@ -30,6 +30,7 @@ class LLM:
         temperature: float = 0.7,
         system_prompt: str = "",
         timeout: float = 120.0,
+        strict_model: bool = False,
     ):
         self.model = model
         self.base_url = base_url.rstrip("/")
@@ -38,6 +39,11 @@ class LLM:
         self.temperature = temperature
         self.system_prompt = system_prompt
         self.timeout = timeout
+        # When True, a requested model that is absent from the server must
+        # make load() fail instead of silently falling back to models[0].
+        # The device-class flow uses this to catch a terminal-1 VLM that
+        # does not match the chosen Jetson class.
+        self.strict_model = strict_model
         self._loaded = False
 
     def load(self) -> bool:
@@ -50,6 +56,19 @@ class LLM:
                     models = [m.get("id", "") for m in r.json().get("data", [])]
                     if not models:
                         return False
+                    if self.model and self.model not in models:
+                        if self.strict_model:
+                            print(
+                                f"Model '{self.model}' not found on {self.base_url}. "
+                                f"Available: {', '.join(models)}\n"
+                                f"Launch the matching VLM in terminal 1, e.g.:\n"
+                                f"  DEVICE_CLASS=<class> ./run_llama_cpp.sh"
+                            )
+                            return False
+                        print(
+                            f"Model '{self.model}' not found; falling back to "
+                            f"{models[0]} (auto-detect)."
+                        )
                     if not self.model or self.model not in models:
                         self.model = models[0]
                 else:

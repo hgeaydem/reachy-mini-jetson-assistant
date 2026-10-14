@@ -38,7 +38,9 @@ uvicorn>=0.24.0
 # Installed separately: pip install reachy-mini
 
 # Jetson-specific GPU runtimes (install separately):
-#   JetPack 6: pip install onnxruntime-gpu --extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu126
+#   JetPack 6: no public CUDA wheels exist for cp310/aarch64 — see
+#              container/Containerfile.r36.5 and wheels/README.md
+#              (prebuilt wheelhouse staged in ./wheels/).
 #   JetPack 7.2: run scripts/setup_jetson.sh for exact manifest selection,
 #                 checksum verification, and GPU validation; source-build
 #                 fallback is documented in docs/JETPACK_7_2_SETUP.md

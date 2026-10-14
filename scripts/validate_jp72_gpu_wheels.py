@@ -30,13 +30,37 @@ def main() -> int:
         "--platform-id",
         default="jp72-l4t39.2-cu13.2-py3.12-sm87",
     )
-    parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--output", type=Path
+    )
+    # Inline expected versions (name==version, comma-separated). When given,
+    # the manifest is not read at all — used by the in-container JP6 build
+    # recipe (orin/build_jp6_wheels.sh), where the manifest's platform entry
+    # only exists in the repo, not on the build machine.
+    parser.add_argument(
+        "--config",
+        default=None,
+        help="e.g. ctranslate2==4.8.1+reachy.jp6.cu126.sm87,onnxruntime==1.23.2+reachy.jp6.cu126.sm87",
+    )
     args = parser.parse_args()
 
-    manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    wheels = manifest["platforms"][args.platform_id]["wheels"]
-    assert ctranslate2.__version__ == wheels["ctranslate2"]["version"]
-    assert ort.__version__ == wheels["onnxruntime_gpu"]["version"]
+    if args.config:
+        expected = {}
+        for part in args.config.split(","):
+            name, _, version = part.partition("==")
+            expected[name.strip()] = version.strip()
+    else:
+        manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+        wheels = manifest["platforms"][args.platform_id]["wheels"]
+        expected = wheels
+    # ORT distribution is `onnxruntime_gpu` on JP7.2 and `onnxruntime`
+    # (CUDA-enabled) on JP6; accept either key. Manifest mode yields
+    # {'version': ...} spec dicts; --config mode yields bare version strings.
+    ort_spec = expected.get("onnxruntime_gpu", expected.get("onnxruntime"))
+    ct2_ver = expected["ctranslate2"]["version"] if isinstance(expected["ctranslate2"], dict) else expected["ctranslate2"]
+    ort_ver = ort_spec["version"] if isinstance(ort_spec, dict) else ort_spec
+    assert ctranslate2.__version__ == ct2_ver
+    assert ort.__version__ == ort_ver
     assert ctranslate2.get_cuda_device_count() > 0
     assert "CUDAExecutionProvider" in ort.get_available_providers()
 

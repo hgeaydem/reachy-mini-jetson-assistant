@@ -160,6 +160,111 @@ class WebConfig:
     port: int = 8090
 
 
+# ── Jetson device classes ─────────────────────────────────────────
+# Per-device model + runtime recommendations for the VLM/STT pair.
+#
+# The VLM is NOT served from config: the actual GGUF is decided by what
+# you launch separately in terminal 1 via run_llama_cpp.sh (or by
+# DEVICE_CLASS=... run_llama_cpp.sh). Each profile below names the
+# recommended VLM spec for its Jetson class, the llama.cpp image tag
+# (Orin vs Thor), and the CTX/BATCH/UBATCH/CACHE_RAM bounds that fit
+# the device's unified memory.
+#
+# `model` is the served model id on the llama.cpp OpenAI API — i.e. the
+# local filename minus .gguf (matches hf_expected_filename()). The
+# assistant pins it on load so a wrong VLM in terminal 1 fails fast
+# instead of being silently auto-picked (see app/llm.py LLM.load()).
+
+@dataclass
+class DeviceProfile:
+    key: str
+    device: str
+    memory_note: str
+    vlm_spec: str
+    model: str
+    stt_model: str
+    image: str
+    ctx: int
+    batch: int
+    ubatch: int
+    cache_ram: int
+
+
+DEVICE_CLASSES: Dict[str, DeviceProfile] = {
+    "orin-nano": DeviceProfile(
+        key="orin-nano",
+        device="Orin Nano 8GB",
+        memory_note="~6 GB GPU budget after OS + camera + web + tracking",
+        vlm_spec="unsloth/gemma-4-E2B-it-GGUF:Q4_K_M",
+        model="gemma-4-E2B-it-Q4_K_M",
+        stt_model="small.en",
+        image="ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin",
+        ctx=1024,
+        batch=128,
+        ubatch=128,
+        cache_ram=0,
+    ),
+    "orin-nx": DeviceProfile(
+        key="orin-nx",
+        device="Orin NX 16GB",
+        memory_note="~13 GB GPU budget; doubles the Orin Nano headroom",
+        vlm_spec="unsloth/gemma-4-E4B-it-GGUF:Q4_K_M",
+        model="gemma-4-E4B-it-Q4_K_M",
+        stt_model="small.en",
+        image="ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin",
+        ctx=4096,
+        batch=256,
+        ubatch=256,
+        cache_ram=256,
+    ),
+    "agx-orin": DeviceProfile(
+        key="agx-orin",
+        device="AGX Orin 64GB",
+        memory_note="~60 GB GPU budget; MoE fits comfortably",
+        vlm_spec="unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M",
+        model="gemma-4-26B-A4B-it-UD-Q4_K_M",
+        stt_model="medium.en",
+        image="ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin",
+        ctx=8192,
+        batch=256,
+        ubatch=256,
+        cache_ram=256,
+    ),
+    "thor": DeviceProfile(
+        key="thor",
+        device="Thor 128GB",
+        memory_note="~100 GB+ GPU budget; needs the Blackwell image",
+        vlm_spec="unsloth/gemma-4-31B-it-GGUF:Q4_K_M",
+        model="gemma-4-31B-it-Q4_K_M",
+        stt_model="medium.en",
+        image="ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor",
+        ctx=16384,
+        batch=256,
+        ubatch=256,
+        cache_ram=512,
+    ),
+}
+
+DEFAULT_DEVICE_CLASS = "orin-nano"
+
+
+def resolve_device_class(key: Optional[str]) -> DeviceProfile:
+    """Return the DeviceProfile for a known key, or the default.
+
+    An unknown non-None key is a caller error (typo) — fail loudly
+    rather than silently picking the default.
+    """
+    if key is None:
+        return DEVICE_CLASSES[DEFAULT_DEVICE_CLASS]
+    k = key.strip().lower()
+    if k not in DEVICE_CLASSES:
+        known = ", ".join(sorted(DEVICE_CLASSES))
+        raise SystemExit(
+            f"Unknown --device-class '{key}'. Known classes: {known}"
+        )
+    return DEVICE_CLASSES[k]
+
+
 _SECTIONS = [
     ("llm", "llm", LLMConfig),
     ("stt", "stt", STTConfig),

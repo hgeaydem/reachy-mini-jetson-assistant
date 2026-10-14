@@ -123,7 +123,7 @@ GStreamer — and, for r39.2, installs the exact published GPU wheels from
 `packaging/jetson-wheels.json` (SHA-256/size-verified). See
 **[`container/README.md`](container/README.md)** for the full recipe, the Thor
 validation evidence, and the (documented) r36.5 GPU-wheel gap. Build with
-`container/build_thor.sh`; the image entry point is `python run_vision_chat.py`.
+`container/build_thor.sh`; the image entry point is `python run_web_vision_chat.py`.
 
 ## Usage
 
@@ -151,6 +151,44 @@ python3 run_web_vision_chat.py
 Open `http://<jetson-ip>:8090` in a browser to see the live UI with camera feed, conversation log, and system stats. The robot listens through its microphone and responds via VLM + TTS.
 
 Press **Ctrl+C** once to exit cleanly (robot will go to sleep position).
+
+### Per-Device Model Selection
+
+`run_web_vision_chat.py` accepts `--device-class <key>` to pin the model set for
+a specific Jetson instead of the 8 GB Orin Nano defaults. With a class
+selected, the web app (1) prints the matching terminal-1 launch command,
+(2) pins the faster-whisper STT model from the profile, and (3) fails fast —
+with the exact `DEVICE_CLASS=<key> ./run_llama_cpp.sh` command — if the
+llama.cpp server is not serving the profile's VLM (no silent auto-pick).
+
+| `--device-class` | Jetson | VLM (`run_llama_cpp.sh` spec) | CTX / BATCH / UBATCH | CACHE_RAM | STT |
+|---|---|---|---|---|---|
+| `orin-nano` *(default)* | Orin Nano 8 GB | `unsloth/gemma-4-E2B-it-GGUF:Q4_K_M` | 1024 / 128 / 128 | 0 | `small.en` |
+| `orin-nx` | Orin NX 16 GB | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` | 4096 / 256 / 256 | 256 | `small.en` |
+| `agx-orin` | AGX Orin 64 GB | `unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M` | 8192 / 256 / 256 | 256 | `medium.en` |
+| `thor` | Thor 128 GB | `unsloth/gemma-4-31B-it-GGUF:Q4_K_M` | 16384 / 256 / 256 | 512 | `medium.en` |
+
+The same keys drive the launcher in terminal 1:
+
+```bash
+DEVICE_CLASS=agx-orin ./run_llama_cpp.sh   # picks model + image + bounds
+```
+
+Notes:
+
+- A **positional model spec always wins** over `DEVICE_CLASS` (unchanged
+  contract): `DEVICE_CLASS=agx-orin ./run_llama_cpp.sh other/repo:Q4_0` loads
+  `other/repo:Q4_0`.
+- The 26B-A4B MoE is only published by unsloth as `UD-Q4_K_M` (16.95 GB) —
+  there is no plain `Q4_K_M` file in that repository.
+- Every class downloads its matching family `mmproj-F16.gguf` from the same
+  unsloth repo into `./models/`.
+- `thor` uses the Blackwell image `ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor`
+  (sm_110a); the other classes use `latest-jetson-orin` (sm_87).
+- `BATCH == UBATCH` for all VLM presets: llama.cpp multimodal builds abort on
+  a physical batch smaller than the logical one. All values remain overridable
+  per launch with `CTX=` / `BATCH=` / `UBATCH=` / `CACHE_RAM=` /
+  `LLAMA_CPP_IMAGE=`.
 
 ### Vision Chat (Terminal Only)
 

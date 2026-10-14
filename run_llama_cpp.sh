@@ -39,12 +39,72 @@
 #   MMPROJ=./models/mmproj-F16.gguf ...         # explicit projector (must share model directory)
 #   LLAMA_CPP_IMAGE=... ./run_llama_cpp.sh ... # override the JetPack-compatible image
 #
+# Device-class presets (pick a VLM + image + CTX/BATCH/UBATCH/CACHE_RAM
+# without passing a positional model spec; a positional spec still wins):
+#   DEVICE_CLASS=orin-nano ./run_llama_cpp.sh
+#   DEVICE_CLASS=orin-nx   ./run_llama_cpp.sh
+#   DEVICE_CLASS=agx-orin  ./run_llama_cpp.sh
+#   DEVICE_CLASS=thor      ./run_llama_cpp.sh   # uses the Blackwell image
+#
 # Stop:
 #   docker stop assistant-llm
 
 set -euo pipefail
 
-MODEL="${1:?Usage: $0 <user/repo:quant or path/to/model.gguf>}"
+# ── Model selection ───────────────────────────────────────────────
+# A positional spec always wins (unchanged contract). Otherwise
+# DEVICE_CLASS selects the VLM + image + CTX/BATCH/UBATCH/CACHE_RAM for
+# that Jetson. Keep in sync with DEVICE_CLASSES in app/config.py.
+ORIN_IMAGE="ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin"
+THOR_IMAGE="ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor"
+
+if [ $# -gt 0 ]; then
+    MODEL="$1"
+    # The old r36.4/cu126 pin is a JetPack 6 image. NVIDIA AI-IOT publishes this
+    # Jetson Orin tag for current JetPack releases; override it to pin a digest.
+    IMAGE="${LLAMA_CPP_IMAGE:-$ORIN_IMAGE}"
+elif [ -n "${DEVICE_CLASS:-}" ]; then
+    case "$DEVICE_CLASS" in
+        orin-nano)
+            MODEL="unsloth/gemma-4-E2B-it-GGUF:Q4_K_M"
+            _dc_ctx=1024 _dc_batch=128 _dc_ubatch=128 _dc_cache=0
+            _dc_image="$ORIN_IMAGE"
+            ;;
+        orin-nx)
+            MODEL="unsloth/gemma-4-E4B-it-GGUF:Q4_K_M"
+            _dc_ctx=4096 _dc_batch=256 _dc_ubatch=256 _dc_cache=256
+            _dc_image="$ORIN_IMAGE"
+            ;;
+        agx-orin)
+            # The unsloth repo ships this MoE only as UD-Q4_K_M (16.95 GB);
+            # keep in sync with DEVICE_CLASSES in app/config.py.
+            MODEL="unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M"
+            _dc_ctx=8192 _dc_batch=256 _dc_ubatch=256 _dc_cache=256
+            _dc_image="$ORIN_IMAGE"
+            ;;
+        thor)
+            # Thor is Blackwell (sm_110a); the Orin image cannot run on it.
+            MODEL="unsloth/gemma-4-31B-it-GGUF:Q4_K_M"
+            _dc_ctx=16384 _dc_batch=256 _dc_ubatch=256 _dc_cache=512
+            _dc_image="$THOR_IMAGE"
+            ;;
+        *)
+            echo "ERROR: unknown DEVICE_CLASS '$DEVICE_CLASS' (orin-nano|orin-nx|agx-orin|thor)"
+            exit 1
+            ;;
+    esac
+    CTX="${CTX:-$_dc_ctx}"
+    BATCH="${BATCH:-$_dc_batch}"
+    UBATCH="${UBATCH:-$_dc_ubatch}"
+    CACHE_RAM="${CACHE_RAM:-$_dc_cache}"
+    IMAGE="${LLAMA_CPP_IMAGE:-$_dc_image}"
+    echo "Device class: $DEVICE_CLASS -> $MODEL"
+else
+    _usage="Usage: $0 <user/repo:quant or path/to/model.gguf> | DEVICE_CLASS=<class> $0"
+    MODEL="${1:?$_usage}"
+    IMAGE="${LLAMA_CPP_IMAGE:-$ORIN_IMAGE}"
+fi
+
 PORT="${PORT:-8080}"
 CTX="${CTX:-}"
 BATCH="${BATCH:-}"
@@ -53,9 +113,6 @@ RESTART="${RESTART:-unless-stopped}"
 REASONING="${REASONING:-off}"
 CACHE_RAM="${CACHE_RAM:-0}"
 NP="${NP:-1}"
-# The old r36.4/cu126 pin is a JetPack 6 image. NVIDIA AI-IOT publishes this
-# Jetson Orin tag for current JetPack releases; override it to pin a digest.
-IMAGE="${LLAMA_CPP_IMAGE:-ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MODELS_DIR="$SCRIPT_DIR/models"

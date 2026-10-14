@@ -5,8 +5,9 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <ctranslate2-wheel-path-or-URL> <onnxruntime-gpu-wheel-path-or-URL>" >&2
-  echo "Activate the project Python 3.12 virtual environment first." >&2
+  echo "Usage: $0 <ctranslate2-wheel-path-or-URL> <onnxruntime-wheel-path-or-URL>" >&2
+  echo "Activate the project Python virtual environment first (3.12 for" >&2
+  echo "JetPack 7.2 wheels, 3.10 for JetPack 6 wheels)." >&2
 }
 
 if [[ $# -ne 2 ]]; then
@@ -25,21 +26,36 @@ ct2_wheel="$1"
 ort_wheel="$2"
 
 if [[ "$(uname -m)" != "aarch64" ]]; then
-  echo "error: JP7.2 wheels require an aarch64 Jetson" >&2
+  echo "error: these wheels require an aarch64 Jetson" >&2
   exit 1
 fi
 
-"$python_bin" - <<'PY'
+# Derive the required CPython tag from the wheel filenames (cp312 for
+# JetPack 7.2, cp310 for JetPack 6). This keeps the installer reusable
+# across both platforms instead of hard-coding a single Python.
+cp_tag="$(basename "$ort_wheel" | grep -oE 'cp3[0-9]{2}' | head -1)"
+if [[ -z "$cp_tag" ]]; then
+  echo "error: cannot read a CPython tag from the ONNX Runtime wheel name" >&2
+  exit 1
+fi
+
+"$python_bin" - "$cp_tag" <<'PY'
 import sys
 
-if sys.version_info[:2] != (3, 12):
+required = sys.argv[1]  # e.g. "cp312"
+major, minor = int(required[3:5]), int(required[5:7])
+if sys.version_info[:2] != (major, minor):
     raise SystemExit(
-        f"error: JP7.2 wheels require Python 3.12, found {sys.version.split()[0]}"
+        f"error: wheels require Python {major}.{minor}, "
+        f"found {sys.version.split()[0]}"
     )
 PY
 
-if [[ -r /etc/nv_tegra_release ]] && ! grep -q '^# R39 ' /etc/nv_tegra_release; then
-  echo "error: these wheels target JetPack 7.2 / L4T r39" >&2
+# L4T guard: accept either JetPack 6 (R36) or JetPack 7 (R39) Tegra boards.
+# The real compatibility gate is the exact wheel-manifest match performed by
+# setup_jetson.sh; this only rejects obviously-wrong (non-Tegra / x86) hosts.
+if [[ -r /etc/nv_tegra_release ]] && ! grep -qE '^# R(36|39) ' /etc/nv_tegra_release; then
+  echo "error: these wheels target a JetPack 6/7 Tegra board" >&2
   exit 1
 fi
 

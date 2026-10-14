@@ -24,13 +24,33 @@ Place in this directory before running the r36.5 build:
 
 ```
 wheels/
-├── ctranslate2-<ver>+<local>-cp310-cp310-linux_aarch64.whl   # CUDA STT
-└── onnxruntime_gpu-<ver>+<local>-cp310-cp310-linux_aarch64.whl  # CUDA TTS
+├── ctranslate2-<ver>+<local>-cp310-cp310-linux_aarch64.whl          # CUDA STT
+└── onnxruntime-<ver>+<local>-cp310-cp310-linux_aarch64.whl         # CUDA TTS
 ```
 
-The exact local version tags are your own (e.g. `+reachy.jp6.cu124.sm87`); the
+The exact local version tags are your own (e.g. `+reachy.jp6.cu126.sm87`); the
 Containerfile globs on `ctranslate2-*-cp310-*.whl` and
-`onnxruntime_gpu-*-cp310-*.whl`.
+`onnxruntime-*-cp310-*.whl`.
+
+### Why the ONNX Runtime wheel is `onnxruntime`, not `onnxruntime_gpu`
+
+kokoro-onnx's CUDA dependency (`onnxruntime-gpu>=1.20.1`) is declared with an
+environment marker for `platform_machine == 'x86_64'` **and** behind the
+`gpu` extra — neither is true on Jetson. Its unconditional dependency is
+`onnxruntime>=1.20.1`. On aarch64 the GPU provider therefore has to come from
+the `onnxruntime` package itself, built with CUDA. If a CUDA wheel were
+published as `onnxruntime_gpu`, pip would still fetch a **CPU** `onnxruntime`
+wheel from PyPI when installing kokoro-onnx and clobber the CUDA `.so` — the
+image would silently run TTS on the CPU. The local version tag
+(`1.23.2+reachy.jp6.cu126.sm87` > `1.23.2`) also guarantees the staged wheel
+is what satisfies `onnxruntime>=1.20.1`.
+
+Version ceiling: ONNX Runtime stopped publishing `cp310-aarch64` wheels after
+1.23.2 (1.24.1 declares `Requires-Python >=3.10` but ships no aarch64 wheel;
+1.28.0 requires Python >=3.11). JetPack 6 / r36.5 is Python 3.10, so **1.23.2**
+is the CUDA ONNX Runtime for this base. CTranslate2 4.8.1 satisfies
+faster-whisper==1.2.1 (`ctranslate2<5,>=4.0`) and still ships `cp310`
+wheels (CPU-only for aarch64 — hence the source build).
 
 > `.gitignore` does **not** exclude `wheels/`, but the `.whl` files themselves are
 > large binaries you build/stage locally. This README is the tracked placeholder

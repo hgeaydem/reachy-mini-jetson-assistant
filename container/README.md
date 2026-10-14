@@ -93,7 +93,7 @@ re-check at build time via PyGObject:
 - **`sounddevice`** (in `requirements.txt`) links PortAudio on Linux → base needs
   `libportaudio2` / `libportaudio-dev`.
 - The assistant is **not** pip-installable (no `pyproject.toml` / `setup.py`); it
-  runs in place from `/opt/assistant`, entry point `python run_vision_chat.py`.
+  runs in place from `/opt/assistant`, entry point `python run_web_vision_chat.py`.
   (There is no `python -m app.cli run-vision` command.)
 
 ## GPU runtimes (CTranslate2 STT + ONNX Runtime TTS)

@@ -163,7 +163,10 @@ if len(matches) != 1:
 platform_id, platform = matches[0]
 release = platform.get("release", {})
 ct2 = platform["wheels"]["ctranslate2"]
-ort = platform["wheels"]["onnxruntime_gpu"]
+# ONNX Runtime ships as the `onnxruntime_gpu` distribution on JP7.2 (x86-style
+# wheel name) but as `onnxruntime` (CUDA-enabled) on JP6, where kokoro-onnx's
+# onnxruntime-gpu dependency is x86_64-gated. Accept either key.
+ort = platform["wheels"].get("onnxruntime_gpu", platform["wheels"]["onnxruntime"])
 values = [
     platform_id,
     platform["wheel_tag"],

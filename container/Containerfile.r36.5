@@ -26,11 +26,15 @@
 # GPU runtimes — NOT solvable from public indexes (this is the honest gap):
 #   packaging/jetson-wheels.json publishes a wheel set for JP7.2 ONLY
 #   (jp72-l4t39.2-cu13.2-py3.12-sm87); there is no JP6 platform entry, and the
-#   jp6/cu126 devpi index currently serves 0 packages. CUDA-enabled
-#   CTranslate2/ONNX Runtime cp310 aarch64 wheels therefore must be staged in
-#   the build context at `./wheels/` before building (the same wheelhouse
-#   scripts/setup_jetson.sh --wheel-dir consumes on a bare Orin Nano; see
-#   docs/JETPACK_7_2_SETUP.md § "Publish a wheel set" for how one is built).
+#   jp6/cu126 devpi index currently serves 0 packages. CUDA-enabled CTranslate2
+#   and a CUDA-enabled ONNX Runtime CP310 aarch64 wheels therefore must be
+#   staged in the build context at `./wheels/` before building (the same
+#   wheelhouse scripts/setup_jetson.sh --wheel-dir consumes on a bare Orin
+#   Nano; see docs/JETPACK_7_2_SETUP.md § "Publish a wheel set" for how one is
+#   built). NOTE: the ONNX Runtime wheel is the `onnxruntime` distribution
+#   (NOT `onnxruntime_gpu`): kokoro-onnx's `onnxruntime-gpu` dependency is
+#   x86_64-only and extra-gated, so on aarch64 the GPU provider must come from
+#   the `onnxruntime` package itself, or pip would install a CPU wheel on top.
 #   `COPY wheels/ /opt/gpu-wheels/` makes this a hard, explicit build input —
 #   the image is never silently built CPU-only.
 
@@ -93,6 +97,8 @@ RUN set -eux; \
 # ------------------------------------------------------------------------------
 # 3. venv + prebuilt GPU wheelhouse. Hard build input: stage the CP310 aarch64
 #    CUDA wheels in `./wheels/` in the build context before building.
+#    The wheels are the `ctranslate2` and `onnxruntime` distributions
+#    (see header note: no `onnxruntime_gpu` dist on aarch64).
 # ------------------------------------------------------------------------------
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN set -eux; python${PYTHON_VERSION} -m venv /opt/venv; \
@@ -104,22 +110,24 @@ RUN set -eux; \
     ls -la /opt/gpu-wheels/; \
     test -n "$(ls /opt/gpu-wheels/ctranslate2-*-cp310-*.whl 2>/dev/null)" \
         || { echo 'FATAL: no cp310 ctranslate2 wheel in ./wheels'; exit 1; }; \
-    test -n "$(ls /opt/gpu-wheels/onnxruntime_gpu-*-cp310-*.whl 2>/dev/null)" \
-        || { echo 'FATAL: no cp310 onnxruntime_gpu wheel in ./wheels'; exit 1; }
+    test -n "$(ls /opt/gpu-wheels/onnxruntime-*-cp310-*.whl 2>/dev/null)" \
+        || { echo 'FATAL: no cp310 onnxruntime wheel in ./wheels'; exit 1; }
 
 # ------------------------------------------------------------------------------
 # 4. App + SDK + GPU runtimes.
 #    * PyGObject 3.46.0 from sdist (no aarch64 wheel) to satisfy reachy-mini's
 #      Linux pin (>=3.42.2, <=3.46.0).
 #    * reachy-mini==1.3.1[gstreamer] (requires_python >=3.10).
-#    * GPU: the CP310 CUDA wheels from /opt/gpu-wheels (wheelhouse, step 3).
+#    * GPU: the CP310 CUDA wheels from /opt/gpu-wheels (wheelhouse, step 3),
+#      installed BEFORE requirements.txt so the local-version CUDA wheels are
+#      what kokoro-onnx's onnxruntime dependency resolves to.
 # ------------------------------------------------------------------------------
 RUN set -eux; \
     . /opt/venv/bin/activate; \
     pip install --no-cache-dir 'PyGObject==3.46.0'; \
     echo '>> installing CUDA GPU wheels from wheelhouse'; \
     pip install --no-cache-dir /opt/gpu-wheels/ctranslate2-*.whl \
-                         /opt/gpu-wheels/onnxruntime_gpu-*.whl; \
+                         /opt/gpu-wheels/onnxruntime-*.whl; \
     pip install --no-cache-dir 'reachy-mini==1.3.1[gstreamer]'; \
     pip install --no-cache-dir -r /build/requirements.txt; \
     echo '--- runtime checks ---'; \
@@ -158,4 +166,4 @@ ENV ASSISTANT_HOME=/opt/assistant
 # Wireless profile (robot daemon + media over WebRTC). For the USB "Lite"
 # profile override: REACHY_ASSISTANT_CONFIG=/opt/assistant/config/settings.yaml
 ENV REACHY_ASSISTANT_CONFIG=/opt/assistant/config/settings.wireless.yaml
-CMD ["python", "run_vision_chat.py"]
+CMD ["python", "run_web_vision_chat.py"]

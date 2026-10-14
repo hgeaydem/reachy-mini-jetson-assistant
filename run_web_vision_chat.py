@@ -23,6 +23,14 @@ Usage:
   python3 run_web_vision_chat.py                 # default 0.0.0.0:8090
   python3 run_web_vision_chat.py --port 9000
   python3 run_web_vision_chat.py --host 127.0.0.1
+
+Device classes (VLM/STT + llama.cpp image + CTX/BATCH per Jetson):
+  python3 run_web_vision_chat.py --device-class orin-nano   # default
+  python3 run_web_vision_chat.py --device-class orin-nx
+  python3 run_web_vision_chat.py --device-class agx-orin
+  python3 run_web_vision_chat.py --device-class thor
+The banner prints the matching terminal-1 command, e.g.:
+  DEVICE_CLASS=thor ./run_llama_cpp.sh
 """
 
 import argparse
@@ -36,7 +44,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app.config import Config
+from app.config import Config, DEVICE_CLASSES, resolve_device_class
 from app.audio import find_alsa_device
 from app.stt import STT
 from app.llm import LLM
@@ -143,11 +151,38 @@ def main():
     parser = argparse.ArgumentParser(description="Vision Chat with Web UI")
     parser.add_argument("--host", default=None, help="Web server bind address")
     parser.add_argument("--port", type=int, default=None, help="Web server port")
+    parser.add_argument(
+        "--device-class",
+        default=None,
+        choices=list(DEVICE_CLASSES),
+        help="Jetson class: picks VLM/STT + llama.cpp image (default: orin-nano)",
+    )
     args = parser.parse_args()
 
     config = Config.load()
     web_host = args.host or config.web.host
     web_port = args.port or config.web.port
+
+    # Device class: pin STT model + expected VLM id, and print the matching
+    # terminal-1 launch command. strict_model makes the VLM check fail fast
+    # when the wrong GGUF is served (only when a class was chosen).
+    profile = resolve_device_class(args.device_class)
+    strict = args.device_class is not None
+    config.stt.model = profile.stt_model
+    config.llm.model = profile.model
+
+    console.print(Panel.fit(
+        f"[bold]Device class:[/bold] {profile.device}  [dim]{profile.memory_note}[/dim]\n"
+        f"Terminal 1 — VLM:\n"
+        f"  [green]DEVICE_CLASS={profile.key} ./run_llama_cpp.sh[/green]\n"
+        f"[dim]or explicitly:[/dim] NP=1 ./run_llama_cpp.sh {profile.vlm_spec}\n"
+        f"  image: {profile.image.split(':')[-1]}  "
+        f"ctx={profile.ctx} batch={profile.batch} ubatch={profile.ubatch} "
+        f"cache_ram={profile.cache_ram}\n"
+        f"[dim]STT: faster-whisper {profile.stt_model} | VLM: {profile.model}[/dim]",
+        title="Model selection",
+    ))
+
     broadcaster = Broadcaster()
 
     console.print(Panel.fit(
@@ -281,8 +316,17 @@ def main():
         backend=config.llm.backend, max_tokens=config.llm.max_tokens,
         temperature=config.llm.temperature, timeout=config.llm.timeout,
         system_prompt=vision_system_prompt,
+        strict_model=strict,
     )
-    llm.load()
+    if not llm.load():
+        console.print("[red]✗ VLM unavailable — the llama.cpp server is not "
+                     "serving the expected model.[/red]")
+        console.print(
+            f"  Start it in terminal 1 first, then re-run this app:\n"
+            f"    [green]DEVICE_CLASS={profile.key} ./run_llama_cpp.sh[/green]"
+        )
+        cam.close()
+        return
     console.print(f"  ✓ VLM ({llm.model})")
 
     tts = create_tts(
