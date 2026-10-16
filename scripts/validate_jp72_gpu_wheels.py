@@ -2,7 +2,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Validate the installed JP7.2 candidate wheels with real CUDA execution."""
+"""Validate the installed GPU candidate wheels with real CUDA execution.
+
+Shared by both published wheel sets: JP7.2 (default manifest/platform) and
+JP6 (via --platform-id jp6-l4t36.5-cu12.6-py310-sm87). The --config flag
+inlines expected versions so it also runs inside a build container that does
+not carry the full manifest (see the JP6 evidence bundle's BUILD.md)."""
 
 from __future__ import annotations
 
@@ -35,8 +40,9 @@ def main() -> int:
     )
     # Inline expected versions (name==version, comma-separated). When given,
     # the manifest is not read at all — used by the in-container JP6 build
-    # recipe (orin/build_jp6_wheels.sh), where the manifest's platform entry
-    # only exists in the repo, not on the build machine.
+    # recipe (see packaging/releases/native-jp6-cu126-py310-sm87-r1/BUILD.md),
+    # where the manifest's platform entry only exists in the repo, not on the
+    # build machine.
     parser.add_argument(
         "--config",
         default=None,

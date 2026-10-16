@@ -61,7 +61,20 @@ command -v "$build_python" >/dev/null 2>&1 || {
     sed -n '/^Name:/p;/^Version:/p' || true
   echo
   echo "[jetpack-runtime-packages]"
-  runtime_packages=(nvidia-l4t-core cuda-toolkit-13-2 cuda-cudart-13-2 libcublas-13-2 libcudnn9-cuda-13 libcudnn9-dev-cuda-13)
+  # Derive the CUDA package names from the actual toolkit version so this
+  # captures correctly on both CUDA 12.x (L4T r36.x) and CUDA 13.x (L4T r39.x).
+  NVCC=/usr/local/cuda/bin/nvcc
+  cuda_mm=""
+  if [[ -x "$NVCC" ]]; then
+    cuda_mm="$("$NVCC" --version 2>/dev/null | sed -n 's/.*release \([0-9]\{1,2\}\.[0-9]\{1,2\}\).*/\1-/p')"
+    cuda_mm="${cuda_mm%-}"
+  fi
+  if [[ -n "$cuda_mm" ]]; then
+    cuda_maj="${cuda_mm%%-*}"
+    runtime_packages=(nvidia-l4t-core "cuda-toolkit-$cuda_mm" "cuda-cudart-$cuda_mm" "libcublas-$cuda_mm" "libcudnn9-cuda-$cuda_maj" "libcudnn9-dev-cuda-$cuda_maj")
+  else
+    runtime_packages=(nvidia-l4t-core)
+  fi
   dpkg-query -W -f='${binary:Package}\t${Version}\n' "${runtime_packages[@]}" 2>/dev/null |
     sort || true
   echo

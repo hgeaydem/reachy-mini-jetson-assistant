@@ -1,0 +1,14 @@
+# Patches
+
+No source patches were applied to build the JP6 wheels.
+
+- CTranslate2 `v4.8.1` was built from the clean upstream source; the downstream
+  changes are wheel packaging only (local version, `LICENSES` manifest, `$ORIGIN`
+  rpath) and are itemized in `packaging/jetson-wheels.json`.
+- ONNX Runtime `v1.23.2` was built from the clean upstream source with build-level
+  changes only (shared library, `CMAKE_CUDA_ARCHITECTURES=87`, numpy 2.x ABI re-link,
+  repackaging as the `onnxruntime` distribution) and is itemized in
+  `packaging/jetson-wheels.json`.
+
+This directory deliberately contains no `.patch` files. The JP7.2 release, by
+contrast, applies `patches/onnxruntime-v1.28.0-jp72.patch`.

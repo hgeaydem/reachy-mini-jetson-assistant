@@ -1,0 +1,19 @@
+{
+  "created": "2026-10-16T13:07:53Z",
+  "platform_id": "jp6-l4t36.5-cu12.6-py3.10-sm87",
+  "ctranslate2_version": "4.8.1+reachy.jp6.cu126.sm87",
+  "ctranslate2_cuda_devices": 1,
+  "onnxruntime_version": "1.23.2+reachy.jp6.cu126.sm87",
+  "onnxruntime_providers": [
+    "CUDAExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "onnxruntime_output_device": "cuda",
+  "onnxruntime_output_shape": [
+    1,
+    8,
+    32,
+    32
+  ],
+  "passed": true
+}

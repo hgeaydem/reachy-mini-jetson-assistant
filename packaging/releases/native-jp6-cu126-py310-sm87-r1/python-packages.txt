@@ -1,0 +1,11 @@
+build==1.5.0
+cmake==3.31.10
+numpy==2.2.6
+onnxruntime @ file:///opt/wheel-out/onnxruntime-1.23.2%2Breachy.jp6.cu126.sm87-cp310-cp310-linux_aarch64.whl#sha256=caa7f1576125bda97247b73bf06041f995b0236bcce7435842255c9587acf458
+packaging==26.3
+pip==26.2.1
+pybind11==2.11.1
+pyproject_hooks==1.3.3
+setuptools==84.0.0
+tomli==2.5.0
+wheel==0.48.0

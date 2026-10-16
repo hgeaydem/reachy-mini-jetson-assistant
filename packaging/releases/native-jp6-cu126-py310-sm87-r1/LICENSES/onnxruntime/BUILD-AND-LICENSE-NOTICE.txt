@@ -1,0 +1,8 @@
+ONNX Runtime 1.23.2, local version +reachy.jp6.cu126.sm87.
+Source: https://github.com/microsoft/onnxruntime (tag v1.23.2), unmodified.
+Built for JetPack 6.x: aarch64, CPython 3.10, CUDA 12.6, cuDNN 9.3, sm_87.
+Built against numpy 2.2.6 (numpy-2 ABI; imports under numpy >=1.21).
+Distribution named `onnxruntime` (CUDA-enabled): see wheels/README.md in
+the reachy-mini-jetson-assistant repo for why this is not `onnxruntime-gpu`.
+License: MIT (see onnxruntime/LICENSE); third-party notices:
+onnxruntime/ThirdPartyNotices.txt.

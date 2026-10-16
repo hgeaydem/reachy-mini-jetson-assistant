@@ -133,7 +133,7 @@ PY; \
     echo '--- runtime checks ---'; \
     python -c "import reachy_mini; print('reachy-mini', reachy_mini.__version__)"; \
     python -c "import ctranslate2 as c; print('ctranslate2', c.__version__, 'cuda', c.get_cuda_device_count())"; \
-    python -c "import onnxruntime as o; print('onnxruntime', o.__version__, o.get_available_providers())"; \
+    python -c "import onnxruntime as o; p=o.get_available_providers(); assert 'CUDAExecutionProvider' in p, 'ORT CPU clobber detected (no CUDA provider): '+str(p); print('onnxruntime', o.__version__, p)"; \
     python -c "import gi; gi.require_version('Gst','1.0'); from gi.repository import Gst; Gst.init(None); print('Gst', Gst.version_string())"
 
 # ------------------------------------------------------------------------------

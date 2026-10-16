@@ -57,6 +57,61 @@
           }
         }
       }
+    },
+    "jp6-l4t36.5-cu12.6-py3.10-sm87": {
+      "architecture": "aarch64",
+      "l4t": "36.5.0",
+      "cuda": "12.6",
+      "python": "3.10",
+      "gpu_family": "orin",
+      "compute_capability": "8.7",
+      "wheel_tag": "cp310-cp310-linux_aarch64",
+      "release": {
+        "published": true,
+        "tag": "native-jp6-cu126-py310-sm87-r1",
+        "base_url": "https://github.com/hgeaydem/reachy-mini-jetson-assistant/releases/download/native-jp6-cu126-py310-sm87-r1"
+      },
+      "wheels": {
+        "ctranslate2": {
+          "distribution": "ctranslate2",
+          "version": "4.8.1+reachy.jp6.cu126.sm87",
+          "filename": "ctranslate2-4.8.1+reachy.jp6.cu126.sm87-cp310-cp310-linux_aarch64.whl",
+          "sha256": "05e51ceefca862542eef28511c2fb90a7cf1dacd300338e1e787a253b2b08d1b",
+          "size": 18373084,
+          "license": "MIT",
+          "source": {
+            "repository": "https://github.com/OpenNMT/CTranslate2.git",
+            "tag": "v4.8.1",
+            "tag_object": "399239a790ad0da4e4363e0dcbb83495b5abd742",
+            "commit": "0d8bcd362ac75ef860ef161d6f0efad0ae439ff0",
+            "modified": true,
+            "modifications": "Downstream wheel packaging and local version only; the CTranslate2 C++ source is unmodified."
+          },
+          "required_member_sha256": {
+            "ctranslate2-4.8.1+reachy.jp6.cu126.sm87.dist-info/licenses/LICENSES/LICENSE": "54aa79d9fe3c09e67a16dcd95b9e88676405a6ec174efda31036983cf7672ecb"
+          }
+        },
+        "onnxruntime": {
+          "distribution": "onnxruntime",
+          "version": "1.23.2+reachy.jp6.cu126.sm87",
+          "filename": "onnxruntime-1.23.2+reachy.jp6.cu126.sm87-cp310-cp310-linux_aarch64.whl",
+          "sha256": "caa7f1576125bda97247b73bf06041f995b0236bcce7435842255c9587acf458",
+          "size": 79138779,
+          "license": "MIT",
+          "source": {
+            "repository": "https://github.com/microsoft/onnxruntime.git",
+            "tag": "v1.23.2",
+            "commit": "a83fc4d58cb48eb68890dd689f94f28288cf2278",
+            "modified": true,
+            "modifications": "Built from the unmodified v1.23.2 source with build-level changes only: re-linked against the numpy 2.x ABI, CUDAExecutionProvider enabled (CMAKE_CUDA_ARCHITECTURES=87), and repackaged as the onnxruntime distribution (was onnxruntime_gpu) with local version +reachy.jp6.cu126.sm87. No source patches."
+          },
+          "required_member_sha256": {
+            "onnxruntime-1.23.2+reachy.jp6.cu126.sm87.dist-info/licenses/LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+            "onnxruntime-1.23.2+reachy.jp6.cu126.sm87.dist-info/licenses/ThirdPartyNotices.txt": "e9e90971a8e75a9a8ac0c6412e29c1202d079998389915aa485f46c816c3b4cc",
+            "onnxruntime-1.23.2+reachy.jp6.cu126.sm87.dist-info/licenses/BUILD-AND-LICENSE-NOTICE.txt": "52ae0b2b574b768a585a8671f585aa9aedd1a38467eb9973d8dc19f7bab00497"
+          }
+        }
+      }
     }
   }
 }

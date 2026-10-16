@@ -1,0 +1,62 @@
+captured_utc=2026-10-16T01:56:31Z
+uname=Linux aaf27f04cedf 6.12.0-211.65.1.el10_2.aarch64 #1 SMP PREEMPT_DYNAMIC Fri Oct  9 15:45:40 UTC 2026 aarch64 aarch64 aarch64 GNU/Linux
+machine=aarch64
+python=Python 3.10.12
+
+[os-release]
+PRETTY_NAME="Ubuntu 22.04.3 LTS"
+NAME="Ubuntu"
+VERSION_ID="22.04"
+VERSION="22.04.3 LTS (Jammy Jellyfish)"
+VERSION_CODENAME=jammy
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=jammy
+
+[l4t]
+# R39 (release), REVISION: 2.1, GCID: 46758480, BOARD: generic, EABI: aarch64, DATE: Fri Aug  7 05:54:22 AM UTC 2026
+# KERNEL_VARIANT: oot
+TARGET_USERSPACE_LIB_DIR=nvidia
+TARGET_USERSPACE_LIB_DIR_PATH=usr/lib/aarch64-linux-gnu/nvidia
+
+[device]
+unavailable
+
+[cuda]
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Wed_Aug_14_10:14:07_PDT_2024
+Cuda compilation tools, release 12.6, V12.6.68
+Build cuda_12.6.r12.6/compiler.34714021_0
+
+[compilers]
+gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0
+g++ (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0
+GNU ld (GNU Binutils for Ubuntu) 2.38
+cmake version 3.22.1
+1.10.1
+ldd (Ubuntu GLIBC 2.35-0ubuntu3.6) 2.35
+
+[python-build-tools]
+Name: pip
+Version: 26.2.1
+Name: setuptools
+Version: 84.0.0
+Name: wheel
+Version: 0.48.0
+Name: build
+Version: 1.5.0
+Name: pybind11
+Version: 2.11.1
+Name: numpy
+Version: 2.2.6
+
+[jetpack-runtime-packages]
+
+[power-mode-capture]
+nvpmodel unavailable
+jetson_clocks unavailable

@@ -1,0 +1,286 @@
+{
+  "schema_version": 1,
+  "description": "Dependencies compiled into, used to build, or required at runtime by the JP6 (JetPack 6.x / L4T r36.5 / CUDA 12.6 / Python 3.10) candidate wheels. ORT fetch pins are the byte-for-byte values from cmake/deps.txt of the onnxruntime v1.23.2 source tree and match the 16 FetchContent components actually built into build-jp6-np2/Release/_deps (verified by directory listing). Runtime Python and ELF dependencies are also enumerated directly from each wheel by scripts/audit_jetson_wheels.py.",
+  "components": [
+    {
+      "wheel": "ctranslate2",
+      "name": "BS thread pool",
+      "version": "5.1.0",
+      "source": "https://github.com/OpenNMT/CTranslate2/blob/v4.8.1/third_party/BS_thread_pool.hpp",
+      "license": "MIT",
+      "checksum_algorithm": "SHA256",
+      "checksum": "ae01783f6373f78aceb0b1bd9bfa40ba8af728e48afdf3ff77b88380ba717143",
+      "scope": "compiled header"
+    },
+    {
+      "wheel": "ctranslate2",
+      "name": "CUTLASS",
+      "version": "v3.4.1",
+      "source": "https://github.com/NVIDIA/cutlass.git",
+      "license": "BSD-3-Clause",
+      "scope": "compiled header and CUDA template code; CTranslate2 submodule (third_party/cutlass, version.h reports CUTLASS 3.4.1)"
+    },
+    {
+      "wheel": "ctranslate2",
+      "name": "Thrust, CUB, and libcu++",
+      "version": "2.5",
+      "source": "https://github.com/NVIDIA/thrust.git",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "scope": "compiled header and CUDA template code; CTranslate2 submodule (third_party/thrust, docs/VERSION.md reports 2.5)"
+    },
+    {
+      "wheel": "ctranslate2",
+      "name": "spdlog with bundled fmt",
+      "version": "1.10.0",
+      "source": "https://github.com/gabime/spdlog.git",
+      "license": "MIT",
+      "scope": "compiled code and headers; CTranslate2 submodule (third_party/spdlog, version.h reports 1.10.0)"
+    },
+    {
+      "wheel": "ctranslate2",
+      "name": "half",
+      "version": "2.2.0",
+      "source": "https://github.com/OpenNMT/CTranslate2/blob/v4.8.1/include/half_float/half.hpp",
+      "license": "MIT",
+      "checksum_algorithm": "SHA256",
+      "checksum": "8f37fbc82d45c141e3c068c83893e7fc2b3696b8f4dbb863ff8a61ab779abf4b",
+      "scope": "compiled header"
+    },
+    {
+      "wheel": "ctranslate2",
+      "name": "nlohmann JSON",
+      "version": "3.11.2",
+      "source": "https://github.com/OpenNMT/CTranslate2/blob/v4.8.1/include/nlohmann/json.hpp",
+      "license": "MIT",
+      "checksum_algorithm": "SHA256",
+      "checksum": "665fa14b8af3837966949e8eb0052d583e2ac105d3438baba9951785512cf921",
+      "scope": "compiled header"
+    },
+    {
+      "wheel": "ctranslate2",
+      "name": "neon_mathfun",
+      "version": "CTranslate2 v4.8.1 snapshot",
+      "source": "https://github.com/OpenNMT/CTranslate2/blob/v4.8.1/third_party/neon_mathfun.h",
+      "license": "Zlib",
+      "checksum_algorithm": "SHA256",
+      "checksum": "262dd1797602d28145e5ea046051eced2788303646894260655144972e0972b9",
+      "scope": "compiled header"
+    },
+    {
+      "wheel": "ctranslate2",
+      "name": "pybind11",
+      "version": "2.11.1",
+      "source": "https://github.com/pybind/pybind11/tree/v2.11.1",
+      "license": "BSD-3-Clause",
+      "scope": "compiled headers used by the Python extension; installed in the build venv (pip show pybind11: 2.11.1)"
+    },
+    {
+      "wheel": "ctranslate2",
+      "name": "CUDA Runtime",
+      "version": "12.6.68",
+      "source": "https://www.nvidia.com/en-us/drivers/nvidia-license/",
+      "license": "LicenseRef-NVIDIA-EULA",
+      "scope": "runtime external; libcudart.so.12 is dynamically resolved from JetPack and is not included"
+    },
+    {
+      "wheel": "ctranslate2",
+      "name": "cuBLAS",
+      "version": "12.6.1.4",
+      "source": "https://www.nvidia.com/en-us/drivers/nvidia-license/",
+      "license": "LicenseRef-NVIDIA-EULA",
+      "scope": "runtime external; libcublas.so.12 is dynamically resolved from JetPack and is not included"
+    },
+    {
+      "wheel": "ctranslate2",
+      "name": "cuDNN",
+      "version": "9.3.0",
+      "source": "https://www.nvidia.com/en-us/drivers/nvidia-license/",
+      "license": "LicenseRef-NVIDIA-EULA",
+      "scope": "runtime external; libcudnn.so.9 is dynamically resolved from JetPack and is not included"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "Abseil",
+      "version": "20250512.0",
+      "source": "https://github.com/abseil/abseil-cpp/archive/refs/tags/20250512.0.zip",
+      "license": "Apache-2.0",
+      "checksum_algorithm": "SHA1",
+      "checksum": "3d6ff7e7ce144d9a53a53bef1f1bf79e1da4b8e1",
+      "scope": "compiled static objects linked into ONNX Runtime"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "cuDNN Frontend",
+      "version": "1.12.0",
+      "source": "https://github.com/NVIDIA/cudnn-frontend/archive/refs/tags/v1.12.0.zip",
+      "license": "MIT",
+      "checksum_algorithm": "SHA1",
+      "checksum": "7e733cfdc410d777b76122d64232499205589a96",
+      "scope": "fetched header dependency"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "CUTLASS",
+      "version": "3.9.2",
+      "source": "https://github.com/NVIDIA/cutlass/archive/refs/tags/v3.9.2.zip",
+      "license": "BSD-3-Clause",
+      "checksum_algorithm": "SHA1",
+      "checksum": "b7f8dc4a879765127ce31dfeabd31c556c80ec79",
+      "scope": "compiled header and CUDA template code"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "date",
+      "version": "3.0.1",
+      "source": "https://github.com/HowardHinnant/date/archive/refs/tags/v3.0.1.zip",
+      "license": "MIT",
+      "checksum_algorithm": "SHA1",
+      "checksum": "2dac0c81dc54ebdd8f8d073a75c053b04b56e159",
+      "scope": "fetched header dependency"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "DLPack",
+      "version": "5c210da409e7f1e51ddf445134a4376fdbd70d7d",
+      "source": "https://github.com/dmlc/dlpack/archive/5c210da409e7f1e51ddf445134a4376fdbd70d7d.zip",
+      "license": "Apache-2.0",
+      "checksum_algorithm": "SHA1",
+      "checksum": "e499c86e4e5c5268a87661d7ea39c27fae10907c",
+      "scope": "compiled header dependency"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "Eigen",
+      "version": "1d8b82b0740839c0de7f1242a3585e3390ff5f33",
+      "source": "https://github.com/eigen-mirror/eigen/archive/1d8b82b0740839c0de7f1242a3585e3390ff5f33/eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33.zip",
+      "license": "MPL-2.0",
+      "checksum_algorithm": "SHA1",
+      "checksum": "05b19b49e6fbb91246be711d801160528c135e34",
+      "scope": "compiled header dependency; covered by the complete ONNX Runtime ThirdPartyNotices.txt"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "FlatBuffers",
+      "version": "23.5.26",
+      "source": "https://github.com/google/flatbuffers/archive/refs/tags/v23.5.26.zip",
+      "license": "Apache-2.0",
+      "checksum_algorithm": "SHA1",
+      "checksum": "59422c3b5e573dd192fead2834d25951f1c1670c",
+      "scope": "compiled static objects linked into ONNX Runtime"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "Microsoft GSL",
+      "version": "4.0.0",
+      "source": "https://github.com/microsoft/GSL/archive/refs/tags/v4.0.0.zip",
+      "license": "MIT",
+      "checksum_algorithm": "SHA1",
+      "checksum": "cf368104cd22a87b4dd0c80228919bb2df3e2a14",
+      "scope": "compiled header dependency"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "Boost.Mp11",
+      "version": "boost-1.82.0",
+      "source": "https://github.com/boostorg/mp11/archive/refs/tags/boost-1.82.0.zip",
+      "license": "BSL-1.0",
+      "checksum_algorithm": "SHA1",
+      "checksum": "9bc9e01dffb64d9e0773b2e44d2f22c51aace063",
+      "scope": "compiled header dependency"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "nlohmann JSON",
+      "version": "3.11.3",
+      "source": "https://github.com/nlohmann/json/archive/refs/tags/v3.11.3.zip",
+      "license": "MIT",
+      "checksum_algorithm": "SHA1",
+      "checksum": "5e88795165cc8590138d1f47ce94ee567b85b4d6",
+      "scope": "compiled header dependency"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "ONNX",
+      "version": "1.18.0",
+      "source": "https://github.com/onnx/onnx/archive/refs/tags/v1.18.0.zip",
+      "license": "Apache-2.0",
+      "checksum_algorithm": "SHA1",
+      "checksum": "f156d032a3af91b66d554e11158b33ca77bbb1f2",
+      "scope": "compiled generated and static objects linked into ONNX Runtime"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "Protocol Buffers",
+      "version": "21.12",
+      "source": "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v21.12.zip",
+      "license": "BSD-3-Clause",
+      "checksum_algorithm": "SHA1",
+      "checksum": "7cf2733949036c7d52fda017badcab093fe73bfa",
+      "scope": "compiled static objects linked into ONNX Runtime"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "pybind11",
+      "version": "2.13.6",
+      "source": "https://github.com/pybind/pybind11/archive/refs/tags/v2.13.6.zip",
+      "license": "BSD-3-Clause",
+      "checksum_algorithm": "SHA1",
+      "checksum": "f780292da9db273c8ef06ccf5fd4b623624143e9",
+      "scope": "compiled headers used by the Python extension (pybind11_project)"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "cpuinfo",
+      "version": "8a1772a0c5c447df2d18edf33ec4603a8c9c04a6",
+      "source": "https://github.com/pytorch/cpuinfo/archive/8a1772a0c5c447df2d18edf33ec4603a8c9c04a6.zip",
+      "license": "BSD-2-Clause",
+      "checksum_algorithm": "SHA1",
+      "checksum": "85bf8a60dae026b99b6ccd78606c85ed83bfb2cd",
+      "scope": "compiled static objects linked into ONNX Runtime (pytorch_cpuinfo)"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "RE2",
+      "version": "2024-07-02",
+      "source": "https://github.com/google/re2/archive/refs/tags/2024-07-02.zip",
+      "license": "BSD-3-Clause",
+      "checksum_algorithm": "SHA1",
+      "checksum": "646e1728269cde7fcef990bf4a8e87b047882e88",
+      "scope": "compiled static objects linked into ONNX Runtime"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "SafeInt",
+      "version": "3.0.28",
+      "source": "https://github.com/dcleblanc/SafeInt/archive/refs/tags/3.0.28.zip",
+      "license": "MIT",
+      "checksum_algorithm": "SHA1",
+      "checksum": "23f252040ff6cb9f1fd18575b32fa8fb5928daac",
+      "scope": "compiled header dependency"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "CUDA Runtime",
+      "version": "12.6.68",
+      "source": "https://www.nvidia.com/en-us/drivers/nvidia-license/",
+      "license": "LicenseRef-NVIDIA-EULA",
+      "scope": "runtime external; libcudart.so.12 is dynamically resolved from JetPack and is not included"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "cuBLAS and cuBLASLt",
+      "version": "12.6.1.4",
+      "source": "https://www.nvidia.com/en-us/drivers/nvidia-license/",
+      "license": "LicenseRef-NVIDIA-EULA",
+      "scope": "runtime external; libcublas.so.12 and libcublasLt.so.12 are dynamically resolved from JetPack and are not included"
+    },
+    {
+      "wheel": "onnxruntime",
+      "name": "cuDNN",
+      "version": "9.3.0",
+      "source": "https://www.nvidia.com/en-us/drivers/nvidia-license/",
+      "license": "LicenseRef-NVIDIA-EULA",
+      "scope": "runtime external; loaded from JetPack when required and not included"
+    }
+  ]
+}

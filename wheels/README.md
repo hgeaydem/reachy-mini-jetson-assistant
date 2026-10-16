@@ -7,16 +7,16 @@ missing — so stage them before building that image.
 
 ## Why a wheelhouse
 
-`packaging/jetson-wheels.json` publishes a wheel set for **JetPack 7.2 only**
-(`jp72-l4t39.2-cu13.2-py3.12-sm87`, CP312). There is no JetPack 6 platform entry,
-and the `jp6/cu126` devpi index currently serves 0 packages. CUDA-enabled
-CP310 aarch64 wheels are therefore not available from a public index and must be
-supplied locally.
-
-This is the same wheelhouse `scripts/setup_jetson.sh --wheel-dir` consumes on a
-bare Orin Nano — see `docs/JETPACK_7_2_SETUP.md` § "Adding a new JetPack/runtime
-tuple" and § "Install candidate GPU wheels manually" for how a wheel set is built
-and published.
+`packaging/jetson-wheels.json` publishes wheel sets for **JetPack 7.2**
+(`jp72-l4t39.2-cu13.2-py3.12-sm87`, CP312) and **JetPack 6**
+(`jp6-l4t36.5-cu12.6-py310-sm87`, CP310). The published assets live on GitHub
+as release downloads, not in this repo — for the container build, place the
+two CP310 wheels from the JP6 release in this directory before building
+(`./scripts/setup_jetson.sh --wheel-dir` consumes the same wheelhouse on a
+bare Orin Nano; see `docs/JETPACK_7_2_SETUP.md` § "Adding a new JetPack/runtime
+tuple" for how a wheel set is built and published, and
+`packaging/releases/native-jp6-cu126-py310-sm87-r1/BUILD.md` for the JP6
+recipe).
 
 ## Required files
 

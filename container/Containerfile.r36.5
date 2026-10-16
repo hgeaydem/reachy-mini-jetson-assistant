@@ -23,15 +23,15 @@
 #   lockfile pin is bumped to 0.3.47 before building (rustc >= 1.80).
 #   Default BUILD_WEBRTC=1.
 #
-# GPU runtimes — NOT solvable from public indexes (this is the honest gap):
-#   packaging/jetson-wheels.json publishes a wheel set for JP7.2 ONLY
-#   (jp72-l4t39.2-cu13.2-py3.12-sm87); there is no JP6 platform entry, and the
-#   jp6/cu126 devpi index currently serves 0 packages. CUDA-enabled CTranslate2
-#   and a CUDA-enabled ONNX Runtime CP310 aarch64 wheels therefore must be
-#   staged in the build context at `./wheels/` before building (the same
+# GPU runtimes (published release):
+#   packaging/jetson-wheels.json publishes the JP6 platform entry
+#   (jp6-l4t36.5-cu12.6-py310-sm87) with a fully validated wheel set:
+#   CUDA-enabled CTranslate2 4.8.1 + ONNX Runtime 1.23.2, built from clean
+#   source (see packaging/releases/native-jp6-cu126-py310-sm87-r1/BUILD.md).
+#   For a container build, stage the two wheels in `./wheels/` (download them
+#   from the published release, or build a fresh set per BUILD.md); the same
 #   wheelhouse scripts/setup_jetson.sh --wheel-dir consumes on a bare Orin
-#   Nano; see docs/JETPACK_7_2_SETUP.md § "Publish a wheel set" for how one is
-#   built). NOTE: the ONNX Runtime wheel is the `onnxruntime` distribution
+#   Nano. NOTE: the ONNX Runtime wheel is the `onnxruntime` distribution
 #   (NOT `onnxruntime_gpu`): kokoro-onnx's `onnxruntime-gpu` dependency is
 #   x86_64-only and extra-gated, so on aarch64 the GPU provider must come from
 #   the `onnxruntime` package itself, or pip would install a CPU wheel on top.
@@ -133,7 +133,7 @@ RUN set -eux; \
     echo '--- runtime checks ---'; \
     python -c "import reachy_mini; print('reachy-mini', reachy_mini.__version__)"; \
     python -c "import ctranslate2 as c; print('ctranslate2', c.__version__, 'cuda', c.get_cuda_device_count())"; \
-    python -c "import onnxruntime as o; print('onnxruntime', o.__version__, o.get_available_providers())"; \
+    python -c "import onnxruntime as o; p=o.get_available_providers(); assert 'CUDAExecutionProvider' in p, 'ORT CPU clobber detected (no CUDA provider): '+str(p); print('onnxruntime', o.__version__, p)"; \
     python -c "import gi; gi.require_version('Gst','1.0'); from gi.repository import Gst; Gst.init(None); print('Gst', Gst.version_string())"
 
 # ------------------------------------------------------------------------------
