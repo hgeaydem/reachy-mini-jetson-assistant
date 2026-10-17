@@ -46,6 +46,7 @@ Face tracking and speaking movements are configurable under the `reachy` section
 |------|-------------|-------------|
 | **Vision Chat** | `python3 run_vision_chat.py` | Camera + VLM + voice (terminal only) |
 | **Web Vision Chat** | `python3 run_web_vision_chat.py` | Same as above + browser UI at `:8090` |
+| **Web Vision Chat (Wireless)** | `python3 run_web_vision_chat.py` + `settings.wireless.yaml` | Camera/mic/speaker streamed over WebRTC from a wireless Reachy Mini — no cable (see [Wireless Setup](docs/WIRELESS_SETUP.md)) |
 | **Voice Chat** | `python3 run_voice_chat.py` | Text LLM + optional RAG (no camera) |
 | **Text Chat** | `python3 main.py chat -t` | Interactive text chat (no mic/speaker) |
 | **CLI** | `python3 main.py ask "..."` | Single question, one-shot answer |
@@ -60,7 +61,7 @@ Face tracking and speaking movements are configurable under the `reachy` section
 | **TTS** | Kokoro ONNX | GPU (CUDA) | Natural voices, subprocess-isolated (see [License Notes](#license-notes)) |
 | **VAD** | Silero VAD | CPU | Neural VAD, far better than energy-only |
 | **Camera** | OpenCV V4L2 | CPU | Shared latest-frame buffer, configurable resolution/FPS |
-| **Robot** | Reachy Mini SDK + Pollen recorded moves | USB | 100 Hz layered motion, 15 Hz face tracking, expressive TTS gestures |
+| **Robot** | Reachy Mini SDK + Pollen recorded moves | USB or WebRTC | 100 Hz layered motion, 15 Hz face tracking, expressive TTS gestures. Wired (Lite/USB) or wireless (no cable, camera/mic/speaker over WebRTC). |
 | **RAG** | ChromaDB + llama.cpp | GPU | bge-small-en-v1.5 embeddings (voice chat only) |
 | **Web UI** | FastAPI + WebSocket | CPU | Live video, conversation stream, system stats |
 
@@ -69,10 +70,20 @@ Face tracking and speaking movements are configurable under the `reachy` section
 - **NVIDIA Jetson Orin Nano** (8GB) with JetPack 7.2 / L4T 39.2.0, CUDA 13.2, and Python 3.12 for the default path
 - **Docker with the NVIDIA container runtime** for the llama.cpp VLM server
 - **Internet access during setup and first model download**; inference is local afterward
-- **[Reachy Mini Lite](https://huggingface.co/docs/reachy_mini/platforms/reachy_mini_lite/get_started)** connected via USB (optional for the software-only benchmark)
+- **[Reachy Mini Lite](https://huggingface.co/docs/reachy_mini/platforms/reachy_mini_lite/get_started)** connected via USB (optional for the software-only benchmark), **or** a **wireless Reachy Mini** on the network for the no-cable setup
 - **NVMe SSD** recommended for swap and model storage
 
 ## Setup
+
+### Wireless Reachy Mini (no cable)
+
+To drive a wireless Reachy Mini with camera, mic, and speaker streamed over
+WebRTC, build the container image for your JetPack and follow the complete
+**[Wireless Setup](docs/WIRELESS_SETUP.md)** guide. In short: build
+`container/Containerfile.r36.5` (JetPack 6) or `container/Containerfile.r39.2`
+(JetPack 7.2), set `reachy.host` to the robot's IP in
+`config/settings.wireless.yaml`, and run the image with `--net=host` so WebRTC
+ICE advertises the Jetson's routable address.
 
 ### JetPack 7.2 (default)
 

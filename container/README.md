@@ -9,7 +9,9 @@ rswebrtc build script, and the GPU-wheel provenance.
 | File | Purpose |
 |---|---|
 | `Containerfile.r39.2` | **Default, fully validated.** JetPack 7.2 / L4T r39.2 (noble, Py 3.12). GPU wheels pulled from the published `packaging/jetson-wheels.json` release. |
-| `Containerfile.r36.5` | **Legacy.** JetPack 6 / L4T r36.5 (jammy, Py 3.10). rswebrtc validated; GPU wheels must be staged in `wheels/` (no published JP6 set — see below). |
+| `Containerfile.r36.5` | **Legacy, wireless-validated.** JetPack 6 / L4T r36.5 (jammy, Py 3.10). SDK 1.8.0 + rswebrtc + audio-send retry patch (step 5b). GPU wheels must be staged in `wheels/` (no published JP6 set — see below). |
+| `Containerfile.appsync.r36.5` | **Thin resync:** rebuilds the r36.5 image in seconds by `COPY`-ing only the app source on top of a full r36.5 image. Use it after app-only changes (e.g. a fix in `app/remote_media.py`) instead of re-running the ~5-min Rust rswebrtc build. |
+| `patches/audio_send_retry.py` | Idempotent post-install SDK patch (applied by `Containerfile.r36.5` step 5b): bounds-retries the one-shot WebRTC audio-send setup so TTS reaches the robot's speaker. Exits non-zero if the SDK anchors moved. |
 | `gst_rswebrtc_sys.sh` | Builds **only** the Rust rswebrtc plugin (`libgstrswebrtc.so`) against the system GStreamer. Self-contained: installs its own Rust toolchain + GStreamer dev headers. Thor-validated on both bases. |
 | `build_thor.sh` | Orchestration: pushes these files to Thor, builds the image(s), and runs the smoke tests. Uses SSH key auth (`THOR_*` vars, default user `mana`). |
 
@@ -83,18 +85,52 @@ re-check at build time via PyGObject:
 
 ## Python / SDK layers
 
-- **`reachy-mini==1.3.1[gstreamer]`** — the version the project docs pin
+Two Containerfiles pin two different SDK versions, matched to their base's
+Python:
+
+- **r39.2 — `reachy-mini==1.3.1[gstreamer]`** — the version the project docs pin
   (SETUP.md, JETPACK_7_2_SETUP.md). The `[gstreamer]` extra pulls
   `PyGObject>=3.42.2,<=3.46.0`.
+- **r36.5 — `reachy-mini==1.8.0`** — the last release supporting Python 3.10
+  (the r36.5 base). It dropped the `[gstreamer]` extra (rswebrtc is built by step
+  5 on the system path instead) and **dropped Zenoh discovery**, so the wireless
+  daemon must be addressed by explicit IP via `reachy.host` in
+  `config/settings.wireless.yaml` (`connection_mode="network"` → `ws://<host>:8000`).
+  Control + WebRTC media are verified cross-version against the robot's newer
+  SDK (1.11.0).
 - **PyGObject 3.46.0 is built from sdist** — there are **no** aarch64 wheels for
   PyGObject on PyPI, so the base needs `libglib2.0-dev` +
   `libgirepository1.0-dev` + `gobject-introspection` to compile it against the
   system GStreamer/GLib.
 - **`sounddevice`** (in `requirements.txt`) links PortAudio on Linux → base needs
-  `libportaudio2` / `libportaudio-dev`.
+  `libportaudio2` / the PortAudio dev headers.
 - The assistant is **not** pip-installable (no `pyproject.toml` / `setup.py`); it
   runs in place from `/opt/assistant`, entry point `python run_web_vision_chat.py`.
   (There is no `python -m app.cli run-vision` command.)
+
+### r36.5 audio-send retry patch (step 5b)
+
+`reachy-mini==1.8.0`'s WebRTC audio-*send* chain is one-shot: it fires from the
+audio src-pad `pad-added` callback, which precedes the moment the C `webrtcbin`
+creates its OPUS send sink pad (~1 s after PLAYING). The first attempt fails with
+"No OPUS sink pad found" and **TTS → robot speaker stays disabled for the whole
+session**. `Containerfile.r36.5` step 5b applies
+`container/patches/audio_send_retry.py` to the installed SDK, wrapping the
+setup in a bounded retry (40 × 250 ms via GLib timeout). The patch is
+idempotent, prints `SDK_AUDIO_RETRY_OK` on success, and **exits non-zero if an
+anchor is missing** (i.e. the SDK file changed and the patch must be re-derived).
+Wire-level validated: tone + real TTS chunks reach the robot's speaker.
+
+### Wireless validation evidence (Orin Nano Super, r36.5)
+
+| Signal | Result |
+|---|---|
+| Video (robot camera → Jetson) | live, ~28 fps |
+| Audio send (Jetson TTS → robot speaker) | proven wire-level (OPUS/RTP) after the step-5b retry patch |
+| Audio receive (robot mic → Jetson) | live; `RemoteMicRecorder` yields ~32 chunks/s of fluctuating RMS feeding Silero VAD → whisper STT |
+
+Full bring-up steps for a new Jetson + wireless robot: see
+[`docs/WIRELESS_SETUP.md`](../docs/WIRELESS_SETUP.md).
 
 ## GPU runtimes (CTranslate2 STT + ONNX Runtime TTS)
 
