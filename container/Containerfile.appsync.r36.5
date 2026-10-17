@@ -1,0 +1,17 @@
+# Thin app-resync on top of the full jp6-r365-a image (build10).
+#
+# build10 already contains: L4T r36.5 stack, gstreamer + rswebrtc plugin
+# (webrtcsrc/webrtcsink via gst-plugins-rs 1.24.0), reachy-mini SDK 1.8.0,
+# the CUDA wheels, and the baked SDK audio-send retry patch (step 5b).
+#
+# This file ONLY re-syncs the app source (/opt/assistant) so app-level fixes
+# (e.g. the RemoteMicRecorder int16 scaling fix in app/remote_media.py) can be
+# shipped in a rebuilt image in seconds instead of re-running the ~5-min Rust
+# build. A full build from container/Containerfile.r36.5 still produces the
+# same result, since it COPYs the same repo source.
+#
+#   podman build -f container/Containerfile.appsync.r36.5 \
+#       -t localhost/reachy-mini-jetson-assistant:jp6-r365-b .
+FROM localhost/reachy-mini-jetson-assistant:jp6-r365-a
+WORKDIR /opt/assistant
+COPY . /opt/assistant

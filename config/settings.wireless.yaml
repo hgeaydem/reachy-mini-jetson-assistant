@@ -15,8 +15,10 @@
 reachy:
   enabled: true
   mode: wireless                  # "lite" (default) = USB/local; "wireless" = network
-  robot_name: reachy_mini         # Zenoh topic prefix; must match the daemon's --robot-name
-  connection_mode: network        # discover the running daemon, never spawn locally
+  robot_name: reachy_mini         # robot identity label
+  host: 192.168.2.113             # SDK 1.8.0: explicit daemon IP (Zenoh discovery removed from the SDK);
+                                  # connection_mode="network" -> ws://<host>:8000
+  connection_mode: network        # connect to the running daemon by IP, never spawn locally
   spawn_daemon: false             # the daemon runs on the robot's RPi, not the Jetson
   media_backend: webrtc           # camera + audio over WebRTC instead of V4L2/ALSA
   timeout: 30.0

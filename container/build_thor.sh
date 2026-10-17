@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 # build_thor.sh — delegate the container build to the NVIDIA Thor (podman).
 #
 # The two Containerfiles here target L4T userspace (r36.5 / r39.2). The actual

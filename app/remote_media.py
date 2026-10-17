@@ -448,7 +448,7 @@ class RemoteMicRecorder:
             emit = buf[: n_full * self.chunk_samples].reshape(-1, self.chunk_samples)
             self._carry = buf[n_full * self.chunk_samples :]
             for chunk in emit:
-                pcm = np.clip(chunk, -1.0, 1.0).astype(np.int16)
+                pcm = np.clip(chunk * 32768.0, -32768.0, 32767.0).astype(np.int16)
                 if self.listening.is_set():
                     self.audio_q.put(pcm.tobytes())
 

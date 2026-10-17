@@ -92,8 +92,11 @@ class VisionConfig:
 class ReachyConfig:
     enabled: bool = True
     mode: str = "lite"                  # "lite" = USB on this machine, "wireless" = network
-    robot_name: str = "reachy_mini"     # Wireless: Zenoh topic prefix; must match the
-                                        # robot's daemon `--robot-name` (SDK default)
+    robot_name: str = "reachy_mini"     # Wireless: robot identity label
+    # Explicit daemon IP. SDK 1.8.0 dropped Zenoh discovery: connection_mode=
+    # "network" connects to ws://<host>:8000 directly, so the robot's IP must
+    # be set here (mDNS/zenoh cannot cross the .0.x -> .2.x subnet split).
+    host: str = "192.168.2.113"
     connection_mode: str = "network"    # Wireless: SDK connection mode
     spawn_daemon: bool = True
     timeout: float = 30.0

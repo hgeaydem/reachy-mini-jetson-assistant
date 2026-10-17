@@ -142,15 +142,15 @@ def connect(config, console: Console) -> Optional["ReachyMini"]:
                 console.print("  Retrying connection (fresh daemon)...")
 
             if is_wireless(config):
-                # Daemon lives on the robot's RPi: never spawn it locally,
-                # discover it over the network and stream media via WebRTC.
-                # The SDK finds the daemon by Zenoh multicast/gossip scouting
-                # (connection_mode="network"); `robot_name` is the Zenoh topic
-                # prefix and must match the daemon's `--robot-name`. No host or
-                # port is needed: the WebRTC signalling endpoint (ws://<wlan_ip>:8443)
-                # is resolved by the SDK from the daemon's own status payload.
-                console.print(f"  Wireless: discovering daemon '{rcfg.robot_name}' on the network...")
+                # Daemon lives on the robot's own host: never spawn it locally,
+                # connect to it by explicit IP and stream media via WebRTC.
+                # SDK 1.8.0 dropped Zenoh discovery, so `host` must be set in
+                # settings.yaml (connection_mode="network" -> ws://<host>:8000).
+                # The WebRTC signalling endpoint (ws://<wlan_ip>:8443) is still
+                # resolved by the SDK from the daemon's own status payload.
+                console.print(f"  Wireless: connecting to daemon at {rcfg.host}...")
                 reachy = ReachyMini(
+                    host=rcfg.host,
                     robot_name=rcfg.robot_name,
                     connection_mode=rcfg.connection_mode,
                     spawn_daemon=False,

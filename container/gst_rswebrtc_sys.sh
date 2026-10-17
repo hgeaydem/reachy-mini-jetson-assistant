@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 # gst_rswebrtc_sys.sh — build ONLY the Rust rswebrtc plugin (webrtcsrc/webrtcsink)
 # against the SYSTEM GStreamer that the L4T base already ships.
 #
@@ -19,6 +21,9 @@
 # the 1.28.3 generation) before building.
 #
 # Thor-validated 2026-10-13: RSWERTC_OK on both bases (see container/README.md).
+#
+# NOTE: must be run under bash (`bash gst_rswebrtc_sys.sh`): the base image's
+# /bin/sh is dash, which rejects `set -o pipefail`.
 #
 # Usage (root, inside the target image):  bash gst_rswebrtc_sys.sh
 set -euxo pipefail

@@ -85,11 +85,13 @@ RUN set -eux; \
         python${PYTHON_VERSION} python${PYTHON_VERSION}-venv python${PYTHON_VERSION}-dev \
         python3-pip python3-wheel \
         gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
-        gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav \
+        gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-nice \
         gstreamer1.0-alsa \
+        gir1.2-gstreamer-1.0 \
         libgstreamer1.0-0 libglib2.0-0 \
-        libportaudio2 libportaudio-dev \
+        libportaudio2 portaudio19-dev \
         libglib2.0-dev libgirepository1.0-dev gobject-introspection pkg-config \
+        libcairo2-dev \
         build-essential ca-certificates curl \
     ; \
     ldconfig
@@ -117,7 +119,9 @@ RUN set -eux; \
 # 4. App + SDK + GPU runtimes.
 #    * PyGObject 3.46.0 from sdist (no aarch64 wheel) to satisfy reachy-mini's
 #      Linux pin (>=3.42.2, <=3.46.0).
-#    * reachy-mini==1.3.1[gstreamer] (requires_python >=3.10).
+#    * reachy-mini==1.8.0 (last WebSocket-control release on py>=3.10; the
+#      robot daemon runs 1.11.0 - control+media verified cross-version; 1.8.0 has no
+#      [gstreamer] extra - the rswebrtc elements are built by step 5 on the system path).
 #    * GPU: the CP310 CUDA wheels from /opt/gpu-wheels (wheelhouse, step 3),
 #      installed BEFORE requirements.txt so the local-version CUDA wheels are
 #      what kokoro-onnx's onnxruntime dependency resolves to.
@@ -128,7 +132,7 @@ RUN set -eux; \
     echo '>> installing CUDA GPU wheels from wheelhouse'; \
     pip install --no-cache-dir /opt/gpu-wheels/ctranslate2-*.whl \
                          /opt/gpu-wheels/onnxruntime-*.whl; \
-    pip install --no-cache-dir 'reachy-mini==1.3.1[gstreamer]'; \
+    pip install --no-cache-dir 'reachy-mini==1.8.0'; \
     pip install --no-cache-dir -r /build/requirements.txt; \
     echo '--- runtime checks ---'; \
     python -c "import reachy_mini; print('reachy-mini', reachy_mini.__version__)"; \
@@ -152,6 +156,20 @@ print('RSWERTC_OK (PyGObject)')"; \
     else \
         echo 'BUILD_WEBRTC=0 — rswebrtc plugin not installed'; \
     fi
+
+# ------------------------------------------------------------------------------
+# 5b. Patch the installed SDK: WebRTC audio-send setup retry.
+#     reachy-mini 1.8.0's _setup_audio_send_chain() runs on the audio
+#     src-pad 'pad-added' callback, which precedes the moment the C
+#     webrtcbin creates its OPUS send sink pad (local description, ~1 s
+#     after PLAYING). The one-shot attempt fails and TTS -> robot
+#     speaker stays disabled for the session. The patch retries with a
+#     bounded budget (40 x 250 ms GLib timeout). Verified in-image
+#     before being applied: probe11b.py pushed 100/100 tone chunks via
+#     push_audio_sample. Exits non-zero if the SDK anchors have moved.
+# ------------------------------------------------------------------------------
+COPY container/patches/audio_send_retry.py /build/patches/audio_send_retry.py
+RUN . /opt/venv/bin/activate; python /build/patches/audio_send_retry.py
 
 # ------------------------------------------------------------------------------
 # 6. App in place. NOT pip-installable (no pyproject.toml); runs from
