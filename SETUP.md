@@ -1,6 +1,6 @@
 # Legacy JetPack 6 Setup Guide
 
-> JetPack 7.2 is now the default. New installations should use the [JetPack 7.2 setup guide](docs/JETPACK_7_2_SETUP.md).
+> JetPack 7.2 is now the default. New installations should use the [JetPack 7.2 setup guide](docs/JETPACK_7_2_SETUP.md). Driving a **wireless** Reachy Mini (no cable, media over WebRTC) is covered by the [Wireless Setup guide](docs/WIRELESS_SETUP.md).
 
 These instructions retain the previous JetPack 6 / L4T r36 / Python 3.10 installation path for existing deployments.
 

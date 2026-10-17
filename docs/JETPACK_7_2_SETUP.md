@@ -285,6 +285,8 @@ The launcher also defaults to `REASONING=off` so Gemma returns spoken-answer tok
 
 ## Connected Reachy Mini
 
+> **No cable?** For a **wireless** Reachy Mini — camera, mic and speaker over WebRTC, the Jetson drives the robot over the network — use the [Wireless Setup guide](WIRELESS_SETUP.md) (container images `container/Containerfile.r36.5` / `Containerfile.r39.2`). The steps below are the wired/USB path.
+
 The base configuration is the normal JP7.2 connected-hardware profile, so no overlay is required. `config/settings.jp72-reachy.yaml` is an optional, conservative bring-up profile that also disables body assist and scanning.
 
 ### Serial permissions and device preflight

@@ -50,13 +50,20 @@ On an aarch64 Jetson with podman or docker. Two Containerfiles ship in
 
 | JetPack | Base | Suggested tag | Build file |
 |---|---|---|---|
-| 6 (L4T r36.5, Py 3.10) | `nvcr.io/nvidia/l4t-jetpack:r36.4.0` + r36.5 apt | `reachy-jetson:jp6-r365` | `container/Containerfile.r36.5` |
-| 7.2 (L4T r39.2, Py 3.12) | `whitesscott/l4t-jetpack:r39.2.1` | `reachy-jetson:jp72-r392` | `container/Containerfile.r39.2` |
+| 6 (L4T r36.5, Py 3.10) | `nvcr.io/nvidia/l4t-jetpack:r36.4.0` + r36.5 apt | `localhost/reachy-mini-jetson-assistant:jp6-r365` | `container/Containerfile.r36.5` |
+| 7.2 (L4T r39.2, Py 3.12) | `whitesscott/l4t-jetpack:r39.2.1` | `localhost/reachy-mini-jetson-assistant:jp72-r392` | `container/Containerfile.r39.2` |
 
 ```sh
 # from the repo root, on the Jetson
-podman build -f container/Containerfile.r36.5 -t reachy-jetson:jp6-r365 .
+podman build -f container/Containerfile.r36.5 \
+  -t localhost/reachy-mini-jetson-assistant:jp6-r365 .
 ```
+
+> **App-only changes are seconds, not minutes.** Once the full image exists,
+> re-syncing just the assistant source (a fix in `app/`, a config tweak) uses
+> `container/Containerfile.appsync.r36.5` — it `FROM`s the full image and
+> `COPY`s the repo on top, skipping the ~5-min Rust rswebrtc build. Build it
+> with the next tag (`-t …:jp6-r365-b`) after the full one (`…:jp6-r365-a`).
 
 The build compiles the `rswebrtc` plugin against the base's **system**
 GStreamer (no source-built GStreamer) and, for r36.5, installs the CUDA wheels
@@ -67,7 +74,7 @@ instead.
 Smoke test that the WebRTC elements exist in the built image:
 
 ```sh
-podman run --rm reachy-jetson:jp6-r365 \
+podman run --rm localhost/reachy-mini-jetson-assistant:jp6-r365 \
   python -c "import gi; gi.require_version('Gst','1.0'); \
 from gi.repository import Gst; Gst.init(None); \
 assert Gst.ElementFactory.make('webrtcsrc'); assert Gst.ElementFactory.make('webrtcsink'); \
@@ -96,7 +103,7 @@ copy into the container:
 ```sh
 podman run -d --net=host \
   -v "$PWD/config/settings.wireless.yaml:/opt/assistant/config/settings.wireless.yaml" \
-  --name reachy-assistant reachy-jetson:jp6-r365
+  --name reachy-assistant localhost/reachy-mini-jetson-assistant:jp6-r365
 ```
 
 ## 5. Start the assistant
@@ -110,7 +117,7 @@ llama.cpp VLM server already running — see README → Quick Start, Terminal 1 
 or the assistant has nothing to answer with):
 
 ```sh
-podman run -d --net=host --name reachy-assistant reachy-jetson:jp6-r365
+podman run -d --net=host --name reachy-assistant localhost/reachy-mini-jetson-assistant:jp6-r365
 # SELinux-enforcing hosts (e.g. RHEL-based L4T / bootc) also need:
 #   --security-opt label=disable
 ```
