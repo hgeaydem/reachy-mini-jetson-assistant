@@ -174,10 +174,10 @@ llama.cpp server is not serving the profile's VLM (no silent auto-pick).
 
 | `--device-class` | Jetson | VLM (`run_llama_cpp.sh` spec) | CTX / BATCH / UBATCH | CACHE_RAM | STT |
 |---|---|---|---|---|---|
-| `orin-nano` *(default)* | Orin Nano 8 GB | `unsloth/gemma-4-E2B-it-GGUF:Q4_K_M` | 1024 / 128 / 128 | 0 | `small.en` |
-| `orin-nx` | Orin NX 16 GB | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` | 4096 / 256 / 256 | 256 | `small.en` |
-| `agx-orin` | AGX Orin 64 GB | `unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M` | 8192 / 256 / 256 | 256 | `medium.en` |
-| `thor` | Thor 128 GB | `unsloth/gemma-4-31B-it-GGUF:Q4_K_M` | 16384 / 256 / 256 | 512 | `medium.en` |
+| `orin-nano` *(default)* | Orin Nano 8 GB | `unsloth/gemma-4-E2B-it-GGUF:Q4_K_M` | 1024 / 128 / 128 | 0 | `small` |
+| `orin-nx` | Orin NX 16 GB | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` | 4096 / 256 / 256 | 256 | `small` |
+| `agx-orin` | AGX Orin 64 GB | `unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M` | 8192 / 256 / 256 | 256 | `large-v3` |
+| `thor` | Thor 128 GB | `unsloth/gemma-4-31B-it-GGUF:Q4_K_M` | 16384 / 256 / 256 | 512 | `medium` |
 
 The same keys drive the launcher in terminal 1:
 
