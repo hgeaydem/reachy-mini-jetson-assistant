@@ -4,6 +4,14 @@ This is the default installation path for the Reachy Mini Jetson Assistant. The 
 
 > **JetPack 6 users:** keep using the complete [legacy JetPack 6 setup guide](../SETUP.md). Its Python 3.10, CUDA 12.6, and r36 container steps remain supported and are intentionally separate from this path.
 
+> **Known limitation on this path:** the r39.2 NVRM driver breaks GPU hardware
+> video (`nvv4l2decoder` and friends — see
+> [KNOWN_ISSUES.md](../KNOWN_ISSUES.md) §1). Everything above works, and the
+> Lite-mode USB camera (OpenCV `v4l2src`) is unaffected, but the **Wireless
+> WebRTC camera stream** is GPU-decoded and cannot run on JP7.2. If you need
+> the wireless vision path, use the JetPack 6 / r36.5 path in
+> [SETUP.md](../SETUP.md).
+
 ## Before you start
 
 - Flash JetPack 7.2 and confirm the host reports L4T 39.2.0.
@@ -341,7 +349,7 @@ Stop the application with Ctrl-C so its cleanup handler returns Reachy to sleep 
 docker stop assistant-llm
 ```
 
-The controlled JP7.2 hardware pass included a human-spoken turn and validated the microphone, Silero VAD, GPU STT/VLM/TTS, camera, Reachy speaker playback, USB motor controller, and an official speaking gesture.
+The controlled JP7.2 hardware pass included a human-spoken turn and validated the microphone, Silero VAD, GPU STT/VLM/TTS, camera (Lite/USB `v4l2src` path), Reachy speaker playback, USB motor controller, and an official speaking gesture. The GPU video-*decode* path (`nvv4l2decoder`, used by the Wireless WebRTC camera stream) is a known r39.2 driver failure — see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md) §1.
 
 ## No-Reachy software benchmark
 

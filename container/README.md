@@ -35,6 +35,14 @@ Both bases are verified at build time: if the `nv*` GStreamer plugins are missin
 the Containerfile installs them from the NVIDIA apt repo (a guard, not the normal
 path).
 
+> **Known limitation:** on L4T r39.2 the GPU V4L2 video path is broken at the
+> driver level (`rpcRmApiControl_dce` init failures in the `TempVersion r595_00`
+> NVRM module — `nvv4l2decoder` fails to process frames). See
+> [../KNOWN_ISSUES.md](../KNOWN_ISSUES.md) §1 for the full evidence matrix
+> (r39.2.0 + r39.2.1, Orin Nano / AGX Orin / Thor) and the r36.5 workaround.
+> The `rswebrtc` media (WebRTC audio + video *transport*) works on r39.2; what
+> does not is the GPU hardware decoder `webrtcbin` uses for the camera stream.
+
 ## Why we build on the system GStreamer
 
 The wireless (no-cable) mode streams the camera and mic over WebRTC and renders
