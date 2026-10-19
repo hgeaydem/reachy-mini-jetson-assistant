@@ -57,7 +57,7 @@ Face tracking and speaking movements are configurable under the `reachy` section
 |-----------|---------|:---:|-------|
 | **VLM** | llama.cpp (Docker) | GPU | Gemma 4 E2B GGUF, OpenAI-compatible API |
 | **LLM** | llama.cpp (Docker) | GPU | Gemma 3 1B for text-only mode |
-| **STT** | faster-whisper | GPU (CUDA) | CTranslate2 with CUDA, small.en default |
+| **STT** | faster-whisper | GPU (CUDA) | Multilingual `medium` (per-utterance auto-detect; see [Multilingual Speech](#multilingual-speech)) |
 | **TTS** | Kokoro ONNX | GPU (CUDA) | Natural voices, subprocess-isolated (see [License Notes](#license-notes)) |
 | **VAD** | Silero VAD | CPU | Neural VAD, far better than energy-only |
 | **Camera** | OpenCV V4L2 | CPU | Shared latest-frame buffer, configurable resolution/FPS |
@@ -266,6 +266,18 @@ The web UI (`run_web_vision_chat.py`) provides a real-time dashboard accessible 
 
 Access at `http://<jetson-ip>:8090`. The web UI adds minimal overhead (~5 MB RAM).
 
+## Multilingual Speech
+
+The assistant detects and speaks more than one language in a single run:
+
+- **Per-utterance auto-detection.** The multilingual `medium` Whisper model runs with `language=auto`, so it detects the spoken language on every utterance instead of forcing English. (`.en` models are English-only; use the multilingual model for this.)
+- **Language-matched TTS.** After detection, the Kokoro voice/language follows the spoken language (`fr` → `ff_siwis`/`fr-fr`, `de` → `bm_lewis`/`de-de`, `es` → `ef_dora`, `it`, `pt`, `ja` → `jf_alpha`, `zh` → `zf_xiaoyi`, `en` → default). Unsupported languages fall back to the configured defaults so the assistant still speaks. The mapper is `kokoro_for_lang()` in `app/tts.py`.
+- **Reply/voice alignment.** The VLM is instructed per request to *respond in the user's language* (the same locked-or-detected code that picks the TTS voice). Without this the model can answer in English to a foreign question, and the TTS would then speak English words with a foreign voice. The instruction is injected into the per-utterance system prompt in `run_web_vision_chat.py` (see `LANGUAGE_NAMES`).
+- **Language lock (web dropdown).** The Web UI has a **Language** selector (Auto · English · Français · Deutsch · Español · Italiano · Português · 日本語 · 中文). Choosing one pins *both* Whisper (STT) and the Kokoro voice (TTS) to that language for every utterance, so auto-detection can't misread an English sentence as another language and force the wrong voice. "Auto" restores per-utterance detection. Server state lives on the `Broadcaster` (`configure_language` / `set_language` / `get_language_state` in `app/web.py`); the STT pin is `STT.set_language()` in `app/stt.py`.
+- **Natural phrasing (TTS chunking).** Each TTS chunk is one Kokoro synthesis with one prosodic reset, so chunk boundaries are audible. The web loop flushes on **sentence ends** (`.!?…`), with a word-count safety valve that cuts at the last clause mark leaving ≥ 4 words — never orphaning a fragment. Configured by `tts.first_chunk_words` (12) and `tts.max_chunk_words` (30) in `config/settings.yaml`.
+
+All of this is STT/TTS-level and independent of the robot connection, so it works in wired, wireless, and terminal modes.
+
 ## Configuration
 
 `config/settings.yaml` is the JetPack 7.2 default. Optional YAML overlays are merged on top of it through `REACHY_ASSISTANT_CONFIG`:
@@ -388,7 +400,7 @@ The repository also includes three focused project skills under `.agents/skills`
 - [ ] **AGX Orin** — larger models (Cosmos-Reason2-7B, Gemma 3 4B), higher resolution, multi-turn context
 - [ ] **Thor** — real-time VLM, multi-camera, extended context windows
 - [ ] Multi-turn conversation memory
-- [ ] Multi-language support
+- [x] Multi-language support (per-utterance auto-detect, language-matched TTS, web language lock)
 
 Contributions for AGX Orin and Thor testing are welcome.
 

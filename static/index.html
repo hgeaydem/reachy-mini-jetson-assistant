@@ -133,6 +133,7 @@ body.resizing iframe,body.resizing img{pointer-events:none}
 .speaker-select:disabled{color:var(--dim);opacity:.7}
 .speaker-status{color:var(--accent);font-size:.85rem;white-space:nowrap}
 .speaker-status.err{color:var(--danger)}
+.lang-select{max-width:170px}
 .volume-route{display:grid;grid-template-columns:auto 34px minmax(90px,1fr) 50px 34px;align-items:center;gap:10px;padding:2px 16px 13px;font-size:.9rem}
 .volume-btn{height:32px;border:1px solid var(--border);border-radius:6px;background:#21262d;color:var(--text);cursor:pointer;font:600 1.05rem/1 inherit}
 .volume-btn:hover:not(:disabled){border-color:#58a6ff;background:#30363d}
@@ -311,6 +312,20 @@ body.resizing iframe,body.resizing img{pointer-events:none}
         <output class="volume-value" id="volumeValue" for="speakerVolume">--%</output>
         <button class="volume-btn" id="volumeUp" type="button" aria-label="Increase speaker volume" disabled>+</button>
       </div>
+      <div class="volume-route">
+        <label for="micVolume">Mic</label>
+        <button class="volume-btn" id="micDown" type="button" aria-label="Decrease microphone volume">&minus;</button>
+        <input class="volume-slider" id="micVolume" type="range" min="0" max="100" step="1" value="100" aria-label="Microphone volume">
+        <output class="volume-value" id="micVolumeValue" for="micVolume">100%</output>
+        <button class="volume-btn" id="micUp" type="button" aria-label="Increase microphone volume">+</button>
+      </div>
+      <div class="audio-route">
+        <label for="langSelect">Language</label>
+        <select class="speaker-select lang-select" id="langSelect" disabled>
+          <option value="auto">Auto (detect)</option>
+        </select>
+        <span class="speaker-status" id="langStatus"></span>
+      </div>
     </div>
 
     <div class="panel sys-panel">
@@ -377,6 +392,10 @@ body.resizing iframe,body.resizing img{pointer-events:none}
       $('speakerSelect').disabled = true;
       setVolumeControls(false);
       $('volumeValue').textContent = '--%';
+      setMicControls(false);
+      $('micVolumeValue').textContent = '--%';
+      $('langSelect').disabled = true;
+      $('langStatus').textContent = '';
       $('speakerStatus').textContent = 'Offline';
       reconnectTimer = setTimeout(connect, 3000);
     };
@@ -395,6 +414,8 @@ body.resizing iframe,body.resizing img{pointer-events:none}
         case 'info':         onInfo(msg); break;
         case 'ptt_state':    onPttState(msg); break;
         case 'speaker_state':onSpeakerState(msg); break;
+        case 'mic_volume_state':onMicVolumeState(msg); break;
+        case 'language_state':onLanguageState(msg); break;
       }
     };
   }
@@ -746,6 +767,75 @@ body.resizing iframe,body.resizing img{pointer-events:none}
   $('speakerVolume').addEventListener('change', function(){ setVolumeFromUi(this.value, true); });
   $('volumeDown').addEventListener('click', ()=>setVolumeFromUi(Number($('speakerVolume').value)-5, true));
   $('volumeUp').addEventListener('click', ()=>setVolumeFromUi(Number($('speakerVolume').value)+5, true));
+
+  let micTimer=null;
+  function setMicControls(enabled){
+    $('micVolume').disabled=!enabled;
+    $('micDown').disabled=!enabled;
+    $('micUp').disabled=!enabled;
+  }
+  function sendMicVolume(value){
+    if(!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({type:'set_mic_volume', volume:clampVolume(value)}));
+  }
+  function setMicFromUi(value, sendNow){
+    const v=clampVolume(value);
+    $('micVolume').value=v;
+    $('micVolumeValue').textContent=v+'%';
+    if(micTimer){ clearTimeout(micTimer); micTimer=null; }
+    if(sendNow) sendMicVolume(v);
+    else micTimer=setTimeout(()=>{ micTimer=null; sendMicVolume(v); }, 100);
+  }
+  function onMicVolumeState(msg){
+    const slider=$('micVolume');
+    if(Number.isFinite(msg.volume)){
+      slider.value=clampVolume(msg.volume);
+      $('micVolumeValue').textContent=clampVolume(msg.volume)+'%';
+      setMicControls(true);
+    } else {
+      setMicControls(false);
+      $('micVolumeValue').textContent='--%';
+      slider.title=msg.error||'';
+    }
+  }
+  $('micVolume').addEventListener('input', function(){ setMicFromUi(this.value, false); });
+  $('micVolume').addEventListener('change', function(){ setMicFromUi(this.value, true); });
+  $('micDown').addEventListener('click', ()=>setMicFromUi(Number($('micVolume').value)-5, true));
+  $('micUp').addEventListener('click', ()=>setMicFromUi(Number($('micVolume').value)+5, true));
+
+  let langLoaded = false;
+  function onLanguageState(msg){
+    const sel = $('langSelect');
+    const hasOpts = Array.isArray(msg.options) && msg.options.length;
+    if(hasOpts && (!langLoaded || sel.dataset.locked !== String(msg.locked || 'auto'))){
+      sel.innerHTML = '';
+      for(const [code, label] of msg.options){
+        const opt = document.createElement('option');
+        opt.value = code;
+        opt.textContent = label;
+        sel.appendChild(opt);
+      }
+      sel.value = msg.locked || 'auto';
+      sel.dataset.locked = String(msg.locked || 'auto');
+      langLoaded = true;
+    }
+    const locked = msg.locked || 'auto';
+    if(msg.error){
+      $('langStatus').textContent = msg.error;
+      $('langStatus').className = 'speaker-status err';
+      sel.disabled = !hasOpts;   // re-enable if we have options to show
+    } else {
+      sel.disabled = false;
+      $('langStatus').textContent = locked === 'auto' ? '' : 'locked';
+      $('langStatus').className = 'speaker-status';
+    }
+  }
+  $('langSelect').addEventListener('change', function(){
+    if(!ws || ws.readyState !== WebSocket.OPEN) return;
+    this.disabled = true;
+    $('langStatus').textContent = 'Setting...';
+    ws.send(JSON.stringify({type:'set_language', code:this.value}));
+  });
 
   /* ── Resizable camera/control split ── */
   const splitKey='reachy-layout-split';

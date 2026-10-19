@@ -84,3 +84,7 @@ class STT:
         if self._model:
             del self._model
             self._model = None
+
+    def set_language(self, code):
+        """Pin the whisper language; None/'auto' restores detection."""
+        self.language = None if code in (None, "auto", "") else code

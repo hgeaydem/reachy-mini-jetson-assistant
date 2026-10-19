@@ -943,10 +943,25 @@ def stream_and_speak(
                 tts_buf += content
                 words = len(tts_buf.split())
                 limit = first_chunk_words if not first_tts_sent else max_chunk_words
-                hit_break = any(c in content for c in TTS_BREAKS) and words >= 2
-                if hit_break or words >= limit:
-                    _enqueue(tts_buf.strip())
-                    tts_buf = ""
+                tail = tts_buf.rstrip()
+                at_sentence = bool(tail) and tail[-1] in ".!?…"
+                if at_sentence or words >= limit:
+                    cut = len(tts_buf)
+                    if not at_sentence:
+                        # Safety valve (mirrors run_web path): cut at the last
+                        # real sentence/clause mark near the cap, never
+                        # orphaning a fragment.
+                        best = -1
+                        for mk in ",;:.!?":
+                            p = tts_buf.rfind(mk)
+                            if (p >= 1 and p > best
+                                    and (p == len(tts_buf) - 1 or tts_buf[p + 1].isspace())
+                                    and len(tts_buf[p + 1:].split()) >= 4):
+                                best = p
+                        if best >= 0:
+                            cut = best + 1
+                    _enqueue(tts_buf[:cut].strip())
+                    tts_buf = tts_buf[cut:].lstrip() if cut < len(tts_buf) else ""
                     first_tts_sent = True
 
     dt_llm = time.perf_counter() - t_llm

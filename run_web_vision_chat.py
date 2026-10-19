@@ -147,6 +147,73 @@ def _stats_broadcast_thread(
 
 # ── Main ─────────────────────────────────────────────────────────
 
+# Languages the web UI can lock: whisper code -> label. "auto" is
+# per-utterance detection (the default); a pinned code forces both STT
+# (whisper language) and TTS (matching Kokoro voice, via
+# KOKORO_LANG_BY_WHISPER) for every utterance.
+LANGUAGE_OPTIONS = [
+    ("auto", "Auto (detect)"),
+    ("en", "English"),
+    ("fr", "Français"),
+    ("de", "Deutsch"),
+    ("es", "Español"),
+    ("it", "Italiano"),
+    ("pt", "Português"),
+    ("ja", "日本語"),
+    ("zh", "中文"),
+]
+
+# Endonyms for the VLM's "respond in <language>" instruction, keyed by the
+# same whisper codes LANGUAGE_OPTIONS uses. The VLM otherwise answers in
+# English even to a French question (the base system prompt never tells it
+# to follow the user's language) — that mismatch is what makes TTS speak
+# English words with a French voice.
+LANGUAGE_NAMES = {
+    "en": "English",
+    "fr": "French",
+    "de": "German",
+    "es": "Spanish",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "ja": "Japanese",
+    "zh": "Chinese",
+}
+
+
+def _wire_mic_volume(broadcaster, config, console):
+    """Enable the web mic-volume slider through the daemon's REST API.
+
+    The microphone gain lives on the robot daemon, so the slider is only
+    wired in wireless mode (daemon reachable at ``config.reachy.host``).
+    """
+    if not is_wireless(config):
+        return
+
+    def _request(method, path, payload=None):
+        import httpx
+        base = f"http://{config.reachy.host}:8000"
+        with httpx.Client(timeout=5.0) as client:
+            if method.upper() == "GET":
+                resp = client.get(base + path)
+            else:
+                resp = client.post(base + path, json=payload or {})
+            resp.raise_for_status()
+            return resp.json()
+
+    def _get():
+        return _request("GET", "/api/volume/microphone/current")
+
+    def _set(volume):
+        return _request(
+            "POST", "/api/volume/microphone/set", {"volume": int(volume)},
+        )
+
+    broadcaster.configure_mic_volume(_get, _set)
+    console.print(
+        f"  ✓ Mic volume control → daemon http://{config.reachy.host}:8000"
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Vision Chat with Web UI")
     parser.add_argument("--host", default=None, help="Web server bind address")
@@ -304,6 +371,19 @@ def main():
     )
     stt.load()
     console.print(f"  ✓ STT (faster-whisper, {config.stt.model})")
+
+    # Language lock (web dropdown): pins whisper per-utterance (STT) and,
+    # via the per-utterance tts override below, the matching Kokoro voice
+    # (TTS). "auto"/None = per-utterance detection (the default). Wired in
+    # all modes — it is purely STT/TTS, independent of the robot daemon.
+    def _set_lang(code):
+        stt.set_language(code)
+        if code is not None:
+            config.stt.language = code
+        return {"language": stt.language}
+
+    broadcaster.configure_language(LANGUAGE_OPTIONS, _set_lang)
+    console.print("  ✓ Language lock (STT+TTS) → web dropdown")
     console.print("    CUDA warmup...", end=" ")
     console.print(f"done ({warmup_stt(stt):.1f}s)")
 
@@ -427,6 +507,7 @@ def main():
         mic.select_speaker,
         mic.set_speaker_volume,
     )
+    _wire_mic_volume(broadcaster, config, console)
 
     # ── Start web server + background threads ────────────────────
     web_thread = start_web_server(broadcaster, host=web_host, port=web_port)
@@ -514,10 +595,28 @@ def main():
 
             # Multilingual follow-through: match the TTS voice/language to the
             # language Whisper detected for this utterance (None = keep config
-            # defaults for unsupported languages).
-            tts_lang_override = kokoro_for_lang(
-                result.get("language"), config.tts.lang, config.tts.voice
+            # defaults for unsupported languages). A locked language from the
+            # web UI overrides detection entirely, so an English sentence can
+            # never be spoken by a foreign voice just because detection
+            # misread the input. The same language is injected into the VLM
+            # prompt so the REPLY is written in it too — without that the
+            # model answers in English even to a French question, and TTS
+            # then speaks English words with the French voice.
+            reply_lang = (
+                broadcaster.locked_language
+                if broadcaster.locked_language
+                else result.get("language")
             )
+            tts_lang_override = kokoro_for_lang(
+                reply_lang, config.tts.lang, config.tts.voice,
+            )
+            lang_name = LANGUAGE_NAMES.get(reply_lang)
+            vision_prompt = vision_system_prompt
+            if lang_name:
+                vision_prompt = (
+                    f"{vision_system_prompt}\n"
+                    f"Respond in {lang_name} — the user is speaking {lang_name}."
+                )
 
             if not text:
                 err = result.get("error", "")
@@ -581,7 +680,7 @@ def main():
             ttft = None
 
             for chunk_data in llm.generate_stream(
-                prompt=text, system_prompt=vision_system_prompt,
+                prompt=text, system_prompt=vision_prompt,
                 images_b64=captured_frames if captured_frames else None,
                 few_shot=vision_few_shot if vision_few_shot else None,
             ):
@@ -600,10 +699,27 @@ def main():
                         tts_buf += content
                         words = len(tts_buf.split())
                         limit = first_chunk_words if not first_tts_sent else max_chunk_words
-                        hit_break = any(c in content for c in TTS_BREAKS) and words >= 2
-                        if hit_break or words >= limit:
-                            tts_q.put((tts_buf.strip(), *tts_lang_override))
-                            tts_buf = ""
+                        tail = tts_buf.rstrip()
+                        at_sentence = bool(tail) and tail[-1] in ".!?…"
+                        if at_sentence or words >= limit:
+                            cut = len(tts_buf)
+                            if not at_sentence:
+                                # Safety valve: cut at the last real sentence/
+                                # clause mark near the cap (>=4 words must
+                                # follow it, and it must be followed by a
+                                # space) so we never orphan a fragment
+                                # mid-phrase.
+                                best = -1
+                                for mk in ",;:.!?":
+                                    p = tts_buf.rfind(mk)
+                                    if (p >= 1 and p > best
+                                            and (p == len(tts_buf) - 1 or tts_buf[p + 1].isspace())
+                                            and len(tts_buf[p + 1:].split()) >= 4):
+                                        best = p
+                                if best >= 0:
+                                    cut = best + 1
+                            tts_q.put((tts_buf[:cut].strip(), *tts_lang_override))
+                            tts_buf = tts_buf[cut:].lstrip() if cut < len(tts_buf) else ""
                             first_tts_sent = True
 
             dt_llm = time.perf_counter() - t_llm

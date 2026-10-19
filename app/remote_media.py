@@ -43,6 +43,7 @@ Contract notes (verified against the SDK source):
 """
 
 import base64
+import logging
 import queue
 import threading
 import time
@@ -53,6 +54,8 @@ import numpy as np
 
 from app.camera import MAX_SPEECH_SECS, PRE_SPEECH_SECS
 from app.pipeline import CHANNELS, SAMPLE_RATE
+
+logger = logging.getLogger(__name__)
 
 
 # ── small helpers ─────────────────────────────────────────────────
@@ -70,7 +73,7 @@ def _resample_linear(x: np.ndarray, from_rate: int, to_rate: int) -> np.ndarray:
         return np.zeros(0, dtype=np.float32)
     positions = np.linspace(0.0, x.size - 1.0, n_out, dtype=np.float64)
     idx = positions.astype(np.int64)
-    idx[np.clip(idx, 0, x.size - 1, out=idx)] = idx
+    idx = np.minimum(idx, x.size - 1)
     frac = (positions - idx).astype(np.float64)
     nxt = np.minimum(idx + 1, x.size - 1)
     out = x.astype(np.float64)[idx] + (x.astype(np.float64)[nxt] - x.astype(np.float64)[idx]) * frac
@@ -295,8 +298,8 @@ class RemoteSpeaker:
             return
         try:
             self.media.start_playing()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("RemoteSpeaker: start_playing() failed: %s", e)
         self._playing = True
 
     def play(self, audio: np.ndarray, sample_rate: int) -> None:
@@ -318,8 +321,9 @@ class RemoteSpeaker:
                 if not self._playing:
                     break
                 self.media.push_audio_sample(mono[i : i + slice_n])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("RemoteSpeaker: push failed, %d/%d samples lost: %s",
+                           i, mono.size, e)
         remaining = expected - (time.monotonic() - started)
         if remaining > 0:
             time.sleep(remaining)

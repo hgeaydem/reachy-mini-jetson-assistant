@@ -50,8 +50,8 @@ tts:
   voice: "af_sarah"                   # kokoro voices: af_sarah, af_bella, am_adam, bf_emma, bm_george, etc.
   speed: 1.0
   lang: "en-us"                       # kokoro language code
-  first_chunk_words: 3                # words before first TTS chunk is sent
-  max_chunk_words: 8                  # max words per TTS chunk
+  first_chunk_words: 12               # first TTS chunk flushes on first sentence end, or this many words (smart clause cut) if the sentence runs long
+  max_chunk_words: 30                 # safety valve: chunks flush on sentence ends (.!?); if a sentence runs past this cap it is cut at the last clause mark leaving >=4 words after it
 
 audio:
   sample_rate: 16000

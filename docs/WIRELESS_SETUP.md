@@ -184,7 +184,7 @@ tell dead from alive.
 |---|---|---|
 | ICE / media never establishes | not `--net=host`, or IP can't route | use `--net=host`; `ping <robot-ip>` from the Jetson |
 | `connecting to daemon at <host>…` then fails | daemon down, wrong IP, or SDK auto-spawn | confirm robot power + daemon up; check `host`; keep `spawn_daemon: false` |
-| Camera works but TTS never reaches the speaker | SDK audio-send one-shot | confirm the image has the retry patch (step 5b); you're on SDK ≤ 1.8.0 |
+| Camera works but TTS never reaches the speaker | SDK audio-send one-shot, or resampler crash | confirm the image has the retry patch (step 5b); you're on SDK ≤ 1.8.0. A silent `_resample_linear()` `IndexError` on the 24 kHz→16 kHz downsample was swallowed by a bare `except: pass` in `app/remote_media.py` — fixed with safe index clamping and logged errors; the robot is silent (no TTS audio) even though synthesis works |
 | Hears nothing / STT empty | mic scaling or no speech | check ambient RMS is non-zero (§7); speak clearly near the robot |
 | Used `setup_jetson.sh` on JP6 | that's the bare-metal wired path | wireless = container; build `container/Containerfile.r36.5` |
 

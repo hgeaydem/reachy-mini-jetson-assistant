@@ -52,6 +52,11 @@ class Broadcaster:
         self._speaker_getter: Optional[Callable[[], dict]] = None
         self._speaker_setter: Optional[Callable[[str], dict]] = None
         self._speaker_volume_setter: Optional[Callable[[int], dict]] = None
+        self._mic_volume_getter: Optional[Callable[[], dict]] = None
+        self._mic_volume_setter: Optional[Callable[[int], dict]] = None
+        self._language_lock: Optional[str] = None
+        self._language_options: Optional[list] = None
+        self._stt_language_setter: Optional[Callable[[Optional[str]], dict]] = None
 
     def set_loop(self, loop: asyncio.AbstractEventLoop):
         self._loop = loop
@@ -134,6 +139,93 @@ class Broadcaster:
                 state.pop("type", None)
         self.send({"type": "speaker_state", **state})
 
+    def configure_mic_volume(
+        self,
+        getter: Optional[Callable[[], dict]],
+        setter: Optional[Callable[[int], dict]] = None,
+    ):
+        """Attach live microphone-volume getter/setter callbacks (daemon API)."""
+        self._mic_volume_getter = getter
+        self._mic_volume_setter = setter
+
+    def get_mic_volume_state(self) -> dict:
+        if not self._mic_volume_getter:
+            return {
+                "type": "mic_volume_state",
+                "volume": None,
+                "error": "Microphone volume control is not initialized",
+            }
+        try:
+            state = self._mic_volume_getter()
+            return {"type": "mic_volume_state", "volume": state.get("volume")}
+        except Exception as exc:
+            return {"type": "mic_volume_state", "volume": None, "error": str(exc)}
+
+    def set_mic_volume(self, volume: int):
+        if not self._mic_volume_setter:
+            state = self.get_mic_volume_state()
+            state.pop("type", None)
+            state["error"] = "Microphone volume control is not initialized"
+            self.send({"type": "mic_volume_state", **state})
+            return
+        try:
+            result = self._mic_volume_setter(volume)
+            state = {"volume": result.get("volume")}
+        except Exception as exc:
+            state = {**self.get_mic_volume_state(), "error": str(exc)}
+            state.pop("type", None)
+        self.send({"type": "mic_volume_state", **state})
+
+    def configure_language(
+        self,
+        options: list,
+        stt_setter: Optional[Callable[[Optional[str]], dict]] = None,
+    ):
+        """Attach the available-language list and the STT language setter.
+
+        ``options`` is a list of ``(code, label)`` tuples (code "auto" first).
+        ``stt_setter`` pins the whisper language when a code != auto is chosen.
+        """
+        self._language_options = options
+        self._stt_language_setter = stt_setter
+
+    @property
+    def locked_language(self) -> Optional[str]:
+        """Currently locked whisper code, or None for auto-detect."""
+        return self._language_lock
+
+    def get_language_state(self) -> dict:
+        options = self._language_options or []
+        return {
+            "type": "language_state",
+            "options": options,
+            "locked": self._language_lock,
+        }
+
+    def set_language(self, code: Optional[str]):
+        options = self._language_options or []
+        codes = {c for c, _ in options}
+        if code in (None, "", "auto"):
+            self._language_lock = None
+        elif code in codes:
+            self._language_lock = code
+        else:
+            self.send({
+                "type": "language_state", "locked": self._language_lock,
+                "options": options, "error": f"unknown language: {code}",
+            })
+            return
+        state = {"locked": self._language_lock, "options": options}
+        if self._stt_language_setter:
+            try:
+                res = self._stt_language_setter(self._language_lock)
+                if isinstance(res, dict) and res.get("error"):
+                    state["error"] = res["error"]
+            except Exception as exc:
+                state["error"] = str(exc)
+        self.send({"type": "language_state", **state})
+
+
     @staticmethod
     def _enqueue_latest(q: asyncio.Queue, msg: dict):
         """Keep a slow client's queue current without leaking payloads to logs."""
@@ -194,6 +286,8 @@ def create_app(broadcaster: Broadcaster) -> FastAPI:
 
         q.put_nowait({"type": "ptt_state", "active": broadcaster.ptt_active})
         q.put_nowait(broadcaster.get_speaker_state())
+        q.put_nowait(broadcaster.get_mic_volume_state())
+        q.put_nowait(broadcaster.get_language_state())
 
         async def _sender():
             try:
@@ -226,6 +320,19 @@ def create_app(broadcaster: Broadcaster) -> FastAPI:
                                 await asyncio.to_thread(
                                     broadcaster.set_speaker_volume, int(volume),
                                 )
+                        elif msg.get("type") == "set_mic_volume":
+                            volume = msg.get("volume")
+                            if (
+                                isinstance(volume, (int, float))
+                                and not isinstance(volume, bool)
+                            ):
+                                await asyncio.to_thread(
+                                    broadcaster.set_mic_volume, int(volume),
+                                )
+                        elif msg.get("type") == "set_language":
+                            await asyncio.to_thread(
+                                broadcaster.set_language, msg.get("code"),
+                            )
                     except (ValueError, KeyError):
                         pass
             except (WebSocketDisconnect, Exception):
