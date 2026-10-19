@@ -22,16 +22,18 @@ import numpy as np
 class STT:
     def __init__(
         self,
-        model: str = "base.en",
+        model: str = "small",
         device: str = "cuda",
         compute_type: str = "int8",
-        language: str = "en",
+        language: str = "auto",
         beam_size: int = 1,
     ):
         self.model_name = model
         self.device = device
         self.compute_type = compute_type
-        self.language = language
+        # "auto" (default) lets Whisper detect the spoken language per utterance
+        # (French, English, ...); pin a specific ISO code to force it.
+        self.language = None if language in ("auto", "none", "") else language
         self.beam_size = beam_size
         self._model = None
 

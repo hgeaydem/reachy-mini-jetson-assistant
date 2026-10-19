@@ -36,10 +36,10 @@ class LLMConfig:
 
 @dataclass
 class STTConfig:
-    model: str = "base.en"
+    model: str = "small"             # multilingual (tiny/base/small); .en variants are English-only
     device: str = "cuda"
     compute_type: str = "float16"
-    language: str = "en"
+    language: str = "auto"           # auto = per-utterance detection (fr/en/...); pin a code to force
     beam_size: int = 1
 
 
@@ -200,7 +200,7 @@ DEVICE_CLASSES: Dict[str, DeviceProfile] = {
         memory_note="~6 GB GPU budget after OS + camera + web + tracking",
         vlm_spec="unsloth/gemma-4-E2B-it-GGUF:Q4_K_M",
         model="gemma-4-E2B-it-Q4_K_M",
-        stt_model="small.en",
+        stt_model="small",
         image="ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin",
         ctx=1024,
         batch=128,
@@ -213,7 +213,7 @@ DEVICE_CLASSES: Dict[str, DeviceProfile] = {
         memory_note="~13 GB GPU budget; doubles the Orin Nano headroom",
         vlm_spec="unsloth/gemma-4-E4B-it-GGUF:Q4_K_M",
         model="gemma-4-E4B-it-Q4_K_M",
-        stt_model="small.en",
+        stt_model="small",
         image="ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin",
         ctx=4096,
         batch=256,
@@ -226,7 +226,7 @@ DEVICE_CLASSES: Dict[str, DeviceProfile] = {
         memory_note="~60 GB GPU budget; MoE fits comfortably",
         vlm_spec="unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M",
         model="gemma-4-26B-A4B-it-UD-Q4_K_M",
-        stt_model="medium.en",
+        stt_model="medium",
         image="ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-orin",
         ctx=8192,
         batch=256,
@@ -239,7 +239,7 @@ DEVICE_CLASSES: Dict[str, DeviceProfile] = {
         memory_note="~100 GB+ GPU budget; needs the Blackwell image",
         vlm_spec="unsloth/gemma-4-31B-it-GGUF:Q4_K_M",
         model="gemma-4-31B-it-Q4_K_M",
-        stt_model="medium.en",
+        stt_model="medium",
         image="ghcr.io/nvidia-ai-iot/llama_cpp:latest-jetson-thor",
         ctx=16384,
         batch=256,

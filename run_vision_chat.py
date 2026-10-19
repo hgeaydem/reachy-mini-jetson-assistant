@@ -35,7 +35,7 @@ from app.config import Config
 from app.audio import find_alsa_device
 from app.stt import STT
 from app.llm import LLM
-from app.tts import create_tts
+from app.tts import create_tts, kokoro_for_lang
 from app.camera import Camera
 from app.pipeline import (
     SAMPLE_RATE, MicRecorder, warmup_stt, vad_loop, stream_and_speak, load_silero,
@@ -320,6 +320,9 @@ def main():
                 few_shot=vision_few_shot if vision_few_shot else None,
                 first_chunk_words=config.tts.first_chunk_words,
                 max_chunk_words=config.tts.max_chunk_words,
+                tts_lang=kokoro_for_lang(
+                    result.get("language"), config.tts.lang, config.tts.voice
+                ),
             )
             console.print()
 

@@ -424,14 +424,23 @@ def tts_player(
     on_audio_start: Optional[Callable[[], None]] = None,
     on_audio_end: Optional[Callable[[], None]] = None,
 ):
-    """Synthesize queued text and expose the true first/last audio events."""
+    """Synthesize queued text and expose the true first/last audio events.
+
+    Queue items are plain strings, or ``(text, lang, voice)`` tuples that
+    override the TTS language/voice for that chunk (multilingual follow-through).
+    """
     audio_started = False
     try:
         while True:
-            text = tts_q.get()
-            if text is None:
+            item = tts_q.get()
+            if item is None:
                 return
-            r = tts_obj.synthesize(text)
+            if isinstance(item, tuple):
+                text, lang, voice = item
+                r = tts_obj.synthesize(text, lang=lang, voice=voice)
+            else:
+                text = item
+                r = tts_obj.synthesize(text)
             if r.get("audio") is not None:
                 if not audio_started:
                     audio_started = True
@@ -886,10 +895,14 @@ def stream_and_speak(
     few_shot: Optional[list[dict]] = None,
     first_chunk_words: int = 3,
     max_chunk_words: int = 8,
+    tts_lang: Optional[tuple] = None,
 ) -> tuple[str, float, Optional[float]]:
     """Stream LLM response while chunking text to TTS for real-time playback.
 
     Returns (full_response, elapsed_seconds, time_to_first_token).
+
+    ``tts_lang`` is an optional (lang, voice) override for every TTS chunk
+    (multilingual follow-through); None keeps the TTS defaults.
     """
     tts_q = None
     tts_thread = None
@@ -899,6 +912,14 @@ def stream_and_speak(
             target=tts_player, args=(tts_obj, tts_q, pa_sink), daemon=True,
         )
         tts_thread.start()
+
+    def _enqueue(chunk_text: str):
+        if tts_q is None:
+            return
+        if tts_lang:
+            tts_q.put((chunk_text, *tts_lang))
+        else:
+            tts_q.put(chunk_text)
 
     full_resp = ""
     tts_buf = ""
@@ -924,7 +945,7 @@ def stream_and_speak(
                 limit = first_chunk_words if not first_tts_sent else max_chunk_words
                 hit_break = any(c in content for c in TTS_BREAKS) and words >= 2
                 if hit_break or words >= limit:
-                    tts_q.put(tts_buf.strip())
+                    _enqueue(tts_buf.strip())
                     tts_buf = ""
                     first_tts_sent = True
 
@@ -932,7 +953,7 @@ def stream_and_speak(
 
     if tts_q is not None:
         if tts_buf.strip():
-            tts_q.put(tts_buf.strip())
+            _enqueue(tts_buf.strip())
         tts_q.put(None)
         tts_thread.join()
 

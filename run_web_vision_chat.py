@@ -48,7 +48,7 @@ from app.config import Config, DEVICE_CLASSES, resolve_device_class
 from app.audio import find_alsa_device
 from app.stt import STT
 from app.llm import LLM
-from app.tts import create_tts
+from app.tts import create_tts, kokoro_for_lang
 from app.camera import Camera
 from app.monitor import get_system_stats, get_jetson_model
 from app.pipeline import (
@@ -512,6 +512,13 @@ def main():
             text = result.get("text", "").strip()
             dt_stt = time.perf_counter() - t_stt
 
+            # Multilingual follow-through: match the TTS voice/language to the
+            # language Whisper detected for this utterance (None = keep config
+            # defaults for unsupported languages).
+            tts_lang_override = kokoro_for_lang(
+                result.get("language"), config.tts.lang, config.tts.voice
+            )
+
             if not text:
                 err = result.get("error", "")
                 console.print(
@@ -595,7 +602,7 @@ def main():
                         limit = first_chunk_words if not first_tts_sent else max_chunk_words
                         hit_break = any(c in content for c in TTS_BREAKS) and words >= 2
                         if hit_break or words >= limit:
-                            tts_q.put(tts_buf.strip())
+                            tts_q.put((tts_buf.strip(), *tts_lang_override))
                             tts_buf = ""
                             first_tts_sent = True
 
@@ -609,12 +616,16 @@ def main():
                 broadcaster.send({"type": "status", "stage": "speaking"})
                 broadcaster.send({"type": "token", "text": fallback_response})
                 full_resp = fallback_response
-                tts_buf = fallback_response
+                # Fallback is English text: speak it with the configured
+                # defaults regardless of the utterance's detected language.
+                tts_buf = (fallback_response, config.tts.lang, config.tts.voice)
 
 
             if tts_q is not None:
-                if tts_buf.strip():
-                    tts_q.put(tts_buf.strip())
+                if isinstance(tts_buf, tuple):
+                    tts_q.put(tts_buf)
+                elif tts_buf.strip():
+                    tts_q.put((tts_buf.strip(), *tts_lang_override))
                 tts_q.put(None)
                 tts_thread.join()
 

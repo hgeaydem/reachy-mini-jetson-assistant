@@ -40,10 +40,10 @@ llm:
     Write numbers and units as spoken words when short.
 
 stt:
-  model: "small.en"                   # tiny.en, base.en, small.en
+  model: "small"                     # multilingual (tiny/base/small); .en variants are English-only
   device: "cuda"
   compute_type: "float16"             # JetPack 7.2 default; JP6 uses config/settings.jp6.yaml
-  language: "en"
+  language: "auto"                    # auto = Whisper detects the spoken language per utterance (fr/en/...); pin e.g. "fr" to force
   beam_size: 1                        # 1=greedy (fast), 5=beam (quality)
 
 tts:

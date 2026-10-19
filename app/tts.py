@@ -36,6 +36,38 @@ VOICES_DIR = Path(__file__).resolve().parent.parent / "voices"
 KOKORO_MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
 KOKORO_VOICES_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
 
+# Whisper language code -> (kokoro lang tag, matching voice).
+# The voice prefix encodes language+gender (ff=female-fr, bm=male-de, ...);
+# a None voice keeps the configured default (used for English). Languages
+# absent from kokoro-onnx v1.0 (ko, ar, ...) are intentionally omitted and
+# fall back to the default voice — the text is still spoken, just not natively.
+KOKORO_LANG_BY_WHISPER = {
+    "fr": ("fr-fr", "ff_siwis"),
+    "de": ("de-de", "bm_lewis"),
+    "es": ("es-es", "ef_dora"),
+    "it": ("it-it", "if_sara"),
+    "pt": ("pt-pt", "pf_dora"),
+    "ja": ("ja-jp", "jf_alpha"),
+    "zh": ("zh-cn", "zf_xiaoyi"),
+    "en": ("en-us", None),
+}
+
+
+def kokoro_for_lang(whisper_lang, default_lang: str, default_voice: str):
+    """Map a detected Whisper language code to a (kokoro lang, voice) pair.
+
+    Returns the configured defaults for unknown/unsupported languages so the
+    assistant still speaks instead of failing.
+    """
+    if not whisper_lang:
+        return (default_lang, default_voice)
+    code = whisper_lang[:2].lower()
+    hit = KOKORO_LANG_BY_WHISPER.get(code)
+    if not hit:
+        return (default_lang, default_voice)
+    lang, voice = hit
+    return (lang, (voice or default_voice))
+
 
 def _download_kokoro_models_if_missing() -> bool:
     """Download Kokoro model and voices to voices/ if not present."""
@@ -146,16 +178,16 @@ class KokoroTTS:
         except (BrokenPipeError, json.JSONDecodeError, OSError):
             return None
 
-    def synthesize(self, text: str) -> Dict[str, Any]:
+    def synthesize(self, text: str, lang=None, voice=None) -> Dict[str, Any]:
         if not text.strip():
             return {"audio": None, "error": "Empty"}
 
         resp = self._send({
             "cmd": "synthesize",
             "text": text,
-            "voice": self.voice,
+            "voice": voice or self.voice,
             "speed": self.speed,
-            "lang": self.lang,
+            "lang": lang or self.lang,
         })
         if resp is None:
             return {"audio": None, "error": "Worker not running"}
