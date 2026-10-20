@@ -702,13 +702,20 @@ def main():
                         tail = tts_buf.rstrip()
                         at_sentence = bool(tail) and tail[-1] in ".!?…"
                         if at_sentence or words >= limit:
-                            cut = len(tts_buf)
-                            if not at_sentence:
-                                # Safety valve: cut at the last real sentence/
-                                # clause mark near the cap (>=4 words must
-                                # follow it, and it must be followed by a
-                                # space) so we never orphan a fragment
-                                # mid-phrase.
+                            # Chunk boundary rules. LLM tokens are sub-word,
+                            # so the buffer usually ends INSIDE a word (e.g.
+                            # "…d'après m" with the next token "'a"). A Kokoro
+                            # chunk must be a whole-word sequence: French
+                            # apostrophes are intra-word and are never a
+                            # valid cut point.
+                            cut = None
+                            if at_sentence:
+                                cut = len(tts_buf)
+                            else:
+                                # Preferred: cut after the last real
+                                # sentence/clause mark near the cap (>=4
+                                # words must follow it) so we never orphan a
+                                # fragment mid-phrase.
                                 best = -1
                                 for mk in ",;:.!?":
                                     p = tts_buf.rfind(mk)
@@ -718,9 +725,26 @@ def main():
                                         best = p
                                 if best >= 0:
                                     cut = best + 1
-                            tts_q.put((tts_buf[:cut].strip(), *tts_lang_override))
-                            tts_buf = tts_buf[cut:].lstrip() if cut < len(tts_buf) else ""
-                            first_tts_sent = True
+                                else:
+                                    # No clause mark: roll back to the last
+                                    # whitespace so the cut stays on a word
+                                    # boundary.
+                                    for j in range(len(tts_buf) - 1, -1, -1):
+                                        if tts_buf[j].isspace():
+                                            ws = j
+                                            break
+                                    else:
+                                        ws = -1
+                                    if ws >= 0 and len(tts_buf[:ws].split()) >= 4:
+                                        cut = ws
+                                    elif len(tts_buf) > 80:
+                                        # Pathological run with no whitespace
+                                        # at all: cut rather than grow forever.
+                                        cut = len(tts_buf)
+                            if cut is not None:
+                                tts_q.put((tts_buf[:cut].strip(), *tts_lang_override))
+                                tts_buf = tts_buf[cut:].lstrip() if cut < len(tts_buf) else ""
+                                first_tts_sent = True
 
             dt_llm = time.perf_counter() - t_llm
             if not full_resp.strip():
